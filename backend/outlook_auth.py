@@ -1,0 +1,60 @@
+"""
+Delegated Microsoft Graph token manager (device-code flow).
+Reads from .outlook_token.json; auto-refreshes using the stored refresh token.
+"""
+import json
+import os
+import time
+from pathlib import Path
+
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN_FILE = Path(__file__).parent / ".outlook_token.json"
+TENANT_ID  = os.getenv("AZURE_TENANT_ID", "")
+
+
+def _load() -> dict:
+    if TOKEN_FILE.exists():
+        return json.loads(TOKEN_FILE.read_text())
+    return {}
+
+
+def _save(data: dict):
+    TOKEN_FILE.write_text(json.dumps(data, indent=2))
+
+
+async def get_graph_token() -> str:
+    """Return a valid delegated Graph access token, refreshing if expired."""
+    d = _load()
+    if not d.get("refresh_token"):
+        return ""
+
+    # Still valid
+    if d.get("access_token") and time.time() < d.get("expires_at", 0) - 60:
+        return d["access_token"]
+
+    # Refresh using the stored refresh token
+    token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(token_url, data={
+                "client_id":     d["client_id"],
+                "refresh_token": d["refresh_token"],
+                "grant_type":    "refresh_token",
+                "scope":         d.get("scope", "Calendars.Read offline_access"),
+            })
+            r.raise_for_status()
+            tokens = r.json()
+    except Exception as e:
+        return ""
+
+    _save({
+        **d,
+        "access_token":  tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", d["refresh_token"]),
+        "expires_at":    time.time() + tokens.get("expires_in", 3600),
+    })
+    return tokens["access_token"]
