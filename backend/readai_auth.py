@@ -1,8 +1,9 @@
 """
 Read.ai OAuth 2.1 token manager.
-Reads from .readai_token.json; auto-refreshes and rotates the refresh token.
+Reads from .readai_token.json or READAI_TOKEN_JSON env var (for Railway).
 """
 import json
+import os
 import time
 from pathlib import Path
 
@@ -18,6 +19,8 @@ def _load() -> dict:
     global _cache
     if TOKEN_FILE.exists():
         _cache = json.loads(TOKEN_FILE.read_text())
+    elif os.getenv("READAI_TOKEN_JSON"):
+        _cache = json.loads(os.getenv("READAI_TOKEN_JSON"))
     return _cache
 
 
