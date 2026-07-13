@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Partner, LiveData } from '../types'
 import { fnvHash } from '../pages/TrackerPage'
 
@@ -151,6 +152,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, onClose }: DetailProps) {
 
 export default function PartnerTable({ partners, liveData, ticks, onTick }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Meeting Notes & Key Updates', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
 
@@ -206,6 +208,12 @@ export default function PartnerTable({ partners, liveData, ticks, onTick }: Prop
                     </div>
                   )}
                   {p.category && <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{p.category}</div>}
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate('/partner/' + encodeURIComponent(p.name)) }}
+                    style={{ marginTop: 5, fontSize: 10, padding: '2px 8px', borderRadius: 3, border: '1px solid #99f6e4', background: '#f0fdfa', color: '#0f766e', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    View ↗
+                  </button>
                 </td>
                 <td><span className="sbu-tag">{p.sbu || 'Unassigned'}</span></td>
                 <td style={{ fontSize: 10.5 }}>{email || <span className="placeholder">—</span>}</td>

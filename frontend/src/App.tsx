@@ -1,11 +1,14 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import TrackerPage from './pages/TrackerPage'
 import ReportPage from './pages/ReportPage'
+import PartnerViewPage from './pages/PartnerViewPage'
 
 export default function App() {
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
+  const location = useLocation()
+  const isPartnerView = location.pathname.startsWith('/partner/')
 
   async function handleSync() {
     setSyncing(true)
@@ -22,6 +25,12 @@ export default function App() {
       setSyncing(false)
     }
   }
+
+  if (isPartnerView) return (
+    <Routes>
+      <Route path="/partner/:name" element={<PartnerViewPage />} />
+    </Routes>
+  )
 
   return (
     <>
@@ -65,6 +74,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<TrackerPage />} />
         <Route path="/report" element={<ReportPage />} />
+        <Route path="/partner/:name" element={<PartnerViewPage />} />
       </Routes>
     </>
   )
