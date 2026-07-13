@@ -98,6 +98,18 @@ function PartnerDetailModal({ p, ld, ticks, onTick, onClose }: DetailProps) {
           </div>
         )}
 
+        {/* Prospects */}
+        {(p.prospects || []).length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Prospects / POV Decks</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {(p.prospects || []).map((pr, pi) => (
+                <span key={pi} style={{ fontSize: 11.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '3px 10px' }}>{pr}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         {(hcAct.length > 0 || lvAct.length > 0) && (
           <div>
@@ -140,7 +152,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, onClose }: DetailProps) {
 export default function PartnerTable({ partners, liveData, ticks, onTick }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
 
-  const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Meeting Notes & Key Updates', 'Open Actions (tick to mark done)', 'Next Step + Flag', 'SPOC']
+  const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Meeting Notes & Key Updates', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
 
   const selectedPartner = selected ? partners.find(p => p.name === selected) : null
   const selectedLd      = selected ? (liveData[selected] || { notes: '', actions: [], last_meeting: '', report_url: '' }) : null
@@ -258,6 +270,18 @@ export default function PartnerTable({ partners, liveData, ticks, onTick }: Prop
                       })}
                     </ul>
                   )}
+                </td>
+                <td style={{ minWidth: 160 }}>
+                  {(p.prospects || []).length === 0
+                    ? <span className="placeholder">&mdash;</span>
+                    : <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {(p.prospects || []).map((pr, pi) => (
+                          <span key={pi} style={{ fontSize: 10.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 7px', display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }} title={pr}>
+                            {pr}
+                          </span>
+                        ))}
+                      </div>
+                  }
                 </td>
                 <td className="placeholder" style={{ fontStyle: 'italic', fontSize: 11 }}>(inferred)</td>
                 <td><span className="spoc-pill">{p.spoc || '—'}</span></td>

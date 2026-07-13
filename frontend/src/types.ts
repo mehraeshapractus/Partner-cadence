@@ -12,6 +12,7 @@ export interface Partner {
   last_meeting: string
   email: string
   actions: string[]
+  prospects: string[]
 }
 
 export interface LiveData {

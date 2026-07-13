@@ -48,8 +48,9 @@ app.add_middleware(
 
 @app.get("/api/partners")
 async def get_partners():
+    partners = [{**p, "prospects": p.get("prospects", [])} for p in PARTNERS]
     return {
-        "partners":   PARTNERS,
+        "partners":   partners,
         "live_data":  _cache["live_data"],
         "synced_at":  _cache["synced_at"],
         "errors":     _cache["errors"],
