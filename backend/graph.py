@@ -119,7 +119,7 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
 
     import asyncio
 
-    token = await _readai_token()
+    token = await _readai_token() or READAI_API_KEY
     headers = {"Authorization": f"Bearer {token}"} if token else {}
 
     live: Dict[str, Dict] = state.get("live_data", {})
