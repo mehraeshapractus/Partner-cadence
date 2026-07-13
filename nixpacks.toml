@@ -1,8 +1,8 @@
-[phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "nodejs_20"]
+providers = ["python", "node"]
 
 [phases.install]
 cmds = [
+  "python3 -c \"import urllib.request; urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')\" && python3 /tmp/get-pip.py --quiet",
   "pip install -r backend/requirements.txt",
   "npm --prefix frontend ci"
 ]
