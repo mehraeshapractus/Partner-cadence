@@ -196,13 +196,17 @@ export default function TrackerPage() {
   const hasAny = (p: Partner) =>
     (p.actions || []).length > 0 ||
     (liveData[p.name]?.actions || []).length > 0 ||
-    (manualActions[p.name] || []).length > 0
+    (manualActions[p.name] || []).length > 0 ||
+    !!(liveData[p.name]?.last_meeting) ||
+    !!(liveData[p.name]?.notes) ||
+    !!p.last_meeting ||
+    !!p.comments
 
   const stageOrd: Record<string, number> = { "GTM Active": 0, "Business Referred": 1, "Discussion Initiated": 2 }
   const sortFn = (a: Partner, b: Partner) =>
     (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
 
-  const withActions    = filtered.filter(hasAny).sort(sortFn)
+  let withActions    = filtered.filter(hasAny).sort(sortFn)
   const withoutActions = filtered.filter(p => !hasAny(p)).sort(sortFn)
 
   if (withActionsDays > 0) {
