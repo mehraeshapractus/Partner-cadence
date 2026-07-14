@@ -202,10 +202,8 @@ export default function TrackerPage() {
   const sortFn = (a: Partner, b: Partner) =>
     (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
 
-  let withActions    = filtered.filter(hasAny).sort(sortFn)
-  let withoutActions = filtered.filter(p => !hasAny(p)).sort(sortFn)
-  if (view === "actions") withoutActions = []
-  if (view === "idle")    withActions    = []
+  const withActions    = filtered.filter(hasAny).sort(sortFn)
+  const withoutActions = filtered.filter(p => !hasAny(p)).sort(sortFn)
 
   if (withActionsDays > 0) {
     const waCutoff = new Date()
@@ -321,36 +319,31 @@ export default function TrackerPage() {
 
       {!total && <div className="empty">No partners match the current filters.</div>}
 
-      {/* Section 1 — always visible so the table never disappears */}
-      {view !== "idle" && (
-        <>
-          <div className="section-hdr collapsible" onClick={() => setOpenWithActions(o => !o)}>
-            <span className={`chevron ${openWithActions ? "open" : ""}`}>&#x203A;</span>
-            Partners with logged next steps
-            <select
-              value={withActionsDays}
-              onClick={e => e.stopPropagation()}
-              onChange={e => setWithActionsDays(Number(e.target.value))}
-              style={{ marginLeft: 8, marginRight: 6, fontSize: 11, padding: '1px 4px', border: '1px solid var(--border-md)', borderRadius: 3, background: '#fff', cursor: 'pointer' }}
-            >
-              <option value={0}>All time</option>
-              <option value={7}>Last 7 days</option>
-              <option value={14}>Last 14 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={60}>Last 60 days</option>
-            </select>
-            <span className="count">{withActions.length} partners</span>
-          </div>
-          {openWithActions && (
-            withActions.length === 0
-              ? <div className="empty" style={{ fontSize: 12 }}>No partners with open next steps{withActionsDays > 0 ? " in this time window" : ""}. Use + Add below to log one.</div>
-              : <PartnerTable partners={withActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
-          )}
-        </>
+      <div className="section-hdr collapsible" onClick={() => setOpenWithActions(o => !o)}>
+        <span className={`chevron ${openWithActions ? "open" : ""}`}>&#x203A;</span>
+        Partners with logged next steps
+        <select
+          value={withActionsDays}
+          onClick={e => e.stopPropagation()}
+          onChange={e => setWithActionsDays(Number(e.target.value))}
+          style={{ marginLeft: 8, marginRight: 6, fontSize: 11, padding: '1px 4px', border: '1px solid var(--border-md)', borderRadius: 3, background: '#fff', cursor: 'pointer' }}
+        >
+          <option value={0}>All time</option>
+          <option value={7}>Last 7 days</option>
+          <option value={14}>Last 14 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={60}>Last 60 days</option>
+        </select>
+        <span className="count">{withActions.length} partners</span>
+      </div>
+      {openWithActions && (
+        withActions.length === 0
+          ? <div className="empty" style={{ fontSize: 12 }}>No partners with open next steps{withActionsDays > 0 ? " in this time window" : ""}. Use + Add below to log one.</div>
+          : <PartnerTable partners={withActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
       )}
 
       {/* Section 2 — partners with no actions */}
-      {withoutActions.length > 0 && view !== "actions" && (
+      {withoutActions.length > 0 && (
         <>
           <div className="section-hdr idle collapsible" onClick={() => setOpenWithoutActions(o => !o)}>
             <span className={`chevron ${openWithoutActions ? "open" : ""}`}>&#x203A;</span>
