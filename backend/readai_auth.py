@@ -39,20 +39,23 @@ async def get_access_token() -> str:
     if d.get("access_token") and time.time() < d.get("expires_at", 0) - 60:
         return d["access_token"]
 
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        r = await client.post(TOKEN_URL, data={
-            "grant_type":    "refresh_token",
-            "refresh_token": d["refresh_token"],
-            "client_id":     d["client_id"],
-            "client_secret": d["client_secret"],
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            r = await client.post(TOKEN_URL, data={
+                "grant_type":    "refresh_token",
+                "refresh_token": d["refresh_token"],
+                "client_id":     d["client_id"],
+                "client_secret": d["client_secret"],
+            })
+            r.raise_for_status()
+            tokens = r.json()
+        _save({
+            **d,
+            "access_token":  tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+            "expires_at":    time.time() + tokens.get("expires_in", 600),
         })
-        r.raise_for_status()
-        tokens = r.json()
-
-    _save({
-        **d,
-        "access_token":  tokens["access_token"],
-        "refresh_token": tokens["refresh_token"],
-        "expires_at":    time.time() + tokens.get("expires_in", 600),
-    })
-    return tokens["access_token"]
+        return tokens["access_token"]
+    except Exception:
+        # Refresh token expired — fall back to API key if available
+        return os.getenv("READAI_API_KEY", "")
