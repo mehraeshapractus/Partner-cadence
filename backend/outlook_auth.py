@@ -19,11 +19,17 @@ TENANT_ID  = os.getenv("AZURE_TENANT_ID", "")
 def _load() -> dict:
     if TOKEN_FILE.exists():
         return json.loads(TOKEN_FILE.read_text())
+    env_json = os.getenv("OUTLOOK_TOKEN_JSON")
+    if env_json:
+        return json.loads(env_json)
     return {}
 
 
 def _save(data: dict):
-    TOKEN_FILE.write_text(json.dumps(data, indent=2))
+    try:
+        TOKEN_FILE.write_text(json.dumps(data, indent=2))
+    except Exception:
+        pass  # on Railway the file path may be read-only; token still works in memory
 
 
 async def get_graph_token() -> str:
@@ -42,9 +48,10 @@ async def get_graph_token() -> str:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.post(token_url, data={
                 "client_id":     d["client_id"],
+                "client_secret": d.get("client_secret", ""),
                 "refresh_token": d["refresh_token"],
                 "grant_type":    "refresh_token",
-                "scope":         d.get("scope", "Calendars.Read offline_access"),
+                "scope":         d.get("scope", "https://graph.microsoft.com/Calendars.Read offline_access"),
             })
             r.raise_for_status()
             tokens = r.json()
