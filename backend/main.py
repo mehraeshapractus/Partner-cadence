@@ -1,10 +1,12 @@
 import asyncio
 import copy
+import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Dict, List
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -20,6 +22,24 @@ _cache: dict = {
     "synced_at": None,
 }
 
+# Manual actions — persisted to file
+MANUAL_FILE: Path = Path(__file__).parent / "manual_actions.json"
+_manual: Dict[str, List[str]] = {}
+
+def _load_manual():
+    global _manual
+    try:
+        if MANUAL_FILE.exists():
+            _manual = json.loads(MANUAL_FILE.read_text())
+    except Exception:
+        _manual = {}
+
+def _save_manual():
+    try:
+        MANUAL_FILE.write_text(json.dumps(_manual, indent=2))
+    except Exception:
+        pass
+
 
 async def do_sync():
     result = await run_sync()
@@ -31,6 +51,7 @@ async def do_sync():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _load_manual()
     asyncio.create_task(do_sync())   # warm sync on startup
     yield
 
@@ -106,6 +127,30 @@ async def get_report():
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "synced_at":    _cache["synced_at"],
     }
+
+
+@app.get("/api/manual-actions")
+async def get_manual_actions():
+    return {"manual_actions": _manual}
+
+@app.post("/api/manual-actions/{partner_name}")
+async def add_manual_action(partner_name: str, body: dict = Body(...)):
+    text = (body.get("text") or "").strip()
+    if not text:
+        return {"ok": False, "error": "empty text"}
+    _manual.setdefault(partner_name, []).append(text)
+    _save_manual()
+    return {"ok": True, "actions": _manual[partner_name]}
+
+@app.delete("/api/manual-actions/{partner_name}/{index}")
+async def delete_manual_action(partner_name: str, index: int):
+    acts = _manual.get(partner_name, [])
+    if 0 <= index < len(acts):
+        acts.pop(index)
+        if not acts:
+            del _manual[partner_name]
+        _save_manual()
+    return {"ok": True}
 
 
 @app.get("/api/health")

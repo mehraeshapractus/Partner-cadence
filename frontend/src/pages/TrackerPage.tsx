@@ -19,18 +19,18 @@ function saveTicks(t: Record<string, { at: string }>) {
 }
 
 export default function TrackerPage() {
-  const [partners, setPartners]   = useState<Partner[]>([])
-  const [liveData, setLiveData]   = useState<Record<string, LiveData>>({})
-  const [weekly,   setWeekly]     = useState<WeekRow[]>([])
-  const [ticks,    setTicks]      = useState<Record<string, { at: string }>>(loadTicks)
-  const [loading,  setLoading]    = useState(true)
-  const [syncedAt, setSyncedAt]   = useState<string | null>(null)
+  const [partners,      setPartners]      = useState<Partner[]>([])
+  const [liveData,      setLiveData]      = useState<Record<string, LiveData>>({})
+  const [weekly,        setWeekly]        = useState<WeekRow[]>([])
+  const [ticks,         setTicks]         = useState<Record<string, { at: string }>>(loadTicks)
+  const [loading,       setLoading]       = useState(true)
+  const [syncedAt,      setSyncedAt]      = useState<string | null>(null)
+  const [manualActions, setManualActions] = useState<Record<string, string[]>>({})
 
   const [openCadence,        setOpenCadence]        = useState(true)
   const [cadenceDays,        setCadenceDays]        = useState(14)
   const [openWithActions,    setOpenWithActions]    = useState(true)
   const [withActionsDays,    setWithActionsDays]    = useState(0)
-  const [openWithoutActions, setOpenWithoutActions] = useState(true)
 
   const [sbu,    setSbu]    = useState("")
   const [type,   setType]   = useState("")
@@ -41,16 +41,38 @@ export default function TrackerPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [pRes, wRes] = await Promise.all([fetch("/api/partners"), fetch("/api/weekly")])
+      const [pRes, wRes, mRes] = await Promise.all([fetch("/api/partners"), fetch("/api/weekly"), fetch("/api/manual-actions")])
       const pJson = await pRes.json()
       const wJson = await wRes.json()
+      const mJson = await mRes.json()
       setPartners(pJson.partners || [])
       setLiveData(pJson.live_data || {})
       setWeekly(wJson.weekly || [])
       setSyncedAt(pJson.synced_at)
+      setManualActions(mJson.manual_actions || {})
     } catch { } finally {
       setLoading(false)
     }
+  }, [])
+
+  const addManualAction = useCallback(async (partnerName: string, text: string) => {
+    const r = await fetch(`/api/manual-actions/${encodeURIComponent(partnerName)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+    const d = await r.json()
+    if (d.ok) setManualActions(prev => ({ ...prev, [partnerName]: d.actions }))
+  }, [])
+
+  const deleteManualAction = useCallback(async (partnerName: string, index: number) => {
+    await fetch(`/api/manual-actions/${encodeURIComponent(partnerName)}/${index}`, { method: "DELETE" })
+    setManualActions(prev => {
+      const acts = [...(prev[partnerName] || [])]
+      acts.splice(index, 1)
+      const next = { ...prev }
+      if (acts.length) next[partnerName] = acts; else delete next[partnerName]
+      return next
+    })
   }, [])
 
   useEffect(() => {
@@ -171,39 +193,46 @@ export default function TrackerPage() {
   }
 
   const hasAny = (p: Partner) =>
-    (p.actions || []).length > 0 || (liveData[p.name]?.actions || []).length > 0
+    (p.actions || []).length > 0 ||
+    (liveData[p.name]?.actions || []).length > 0 ||
+    (manualActions[p.name] || []).length > 0
 
   const stageOrd: Record<string, number> = { "GTM Active": 0, "Business Referred": 1, "Discussion Initiated": 2 }
-  const sortFn = (a: Partner, b: Partner) =>
-    (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
+  const sortFn = (a: Partner, b: Partner) => {
+    // partners with actions always sort before those without
+    const ha = hasAny(a) ? 0 : 1, hb = hasAny(b) ? 0 : 1
+    if (ha !== hb) return ha - hb
+    return (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
+  }
 
-  let withActions    = filtered.filter(hasAny).sort(sortFn)
-  let withoutActions = filtered.filter(p => !hasAny(p)).sort(sortFn)
-  if (view === "actions") withoutActions = []
-  if (view === "idle")    withActions    = []
+  let displayPartners = [...filtered].sort(sortFn)
+  if (view === "actions") displayPartners = displayPartners.filter(hasAny)
+  if (view === "idle")    displayPartners = displayPartners.filter(p => !hasAny(p))
 
   if (withActionsDays > 0) {
     const waCutoff = new Date()
     waCutoff.setDate(waCutoff.getDate() - withActionsDays)
-    withActions = withActions.filter(p => {
+    displayPartners = displayPartners.filter(p => {
       const lm = liveData[p.name]?.last_meeting || p.last_meeting
       const d  = parseDate(lm)
       return d !== null && d >= waCutoff
     })
   }
 
-  const total        = withActions.length + withoutActions.length
+  const total        = filtered.length
   const gtm          = filtered.filter(p => p.stage === "GTM Active").length
   const referred     = filtered.filter(p => p.stage === "Business Referred").length
   const openActions  = filtered.reduce((s, p) => {
     const hc = (p.actions || []).filter((_, i) => !ticks[`${p.name}::${i}`]).length
     const lv = (liveData[p.name]?.actions || []).filter(a => !ticks[`live::${p.name}::${fnvHash(a.trim())}`]).length
-    return s + hc + lv
+    const mn = (manualActions[p.name] || []).filter(a => !ticks[`manual::${p.name}::${fnvHash(a.trim())}`]).length
+    return s + hc + lv + mn
   }, 0)
   const doneActions  = filtered.reduce((s, p) => {
     const hc = (p.actions || []).filter((_, i) => !!ticks[`${p.name}::${i}`]).length
     const lv = (liveData[p.name]?.actions || []).filter(a => !!ticks[`live::${p.name}::${fnvHash(a.trim())}`]).length
-    return s + hc + lv
+    const mn = (manualActions[p.name] || []).filter(a => !!ticks[`manual::${p.name}::${fnvHash(a.trim())}`]).length
+    return s + hc + lv + mn
   }, 0)
 
   const today = new Date()
@@ -294,11 +323,11 @@ export default function TrackerPage() {
 
       {!total && <div className="empty">No partners match the current filters.</div>}
 
-      {(withActions.length > 0 || withActionsDays > 0) && (
+      {total > 0 && (
         <>
           <div className="section-hdr collapsible" onClick={() => setOpenWithActions(o => !o)}>
             <span className={`chevron ${openWithActions ? "open" : ""}`}>&#x203A;</span>
-            Partners with open next steps
+            Partners with logged next steps
             <select
               value={withActionsDays}
               onClick={e => e.stopPropagation()}
@@ -311,24 +340,12 @@ export default function TrackerPage() {
               <option value={30}>Last 30 days</option>
               <option value={60}>Last 60 days</option>
             </select>
-            <span className="count">{withActions.length} partners</span>
+            <span className="count">{displayPartners.length} partners</span>
           </div>
           {openWithActions && (
-            withActions.length === 0
-              ? <div className="empty" style={{ fontSize: 12 }}>No partners with open actions had a meeting in this window.</div>
-              : <PartnerTable partners={withActions} liveData={liveData} ticks={ticks} onTick={onTick} />
-          )}
-        </>
-      )}
-
-      {withoutActions.length > 0 && (
-        <>
-          <div className="section-hdr idle collapsible" onClick={() => setOpenWithoutActions(o => !o)}>
-            <span className={`chevron ${openWithoutActions ? "open" : ""}`}>&#x203A;</span>
-            Partners with no logged next steps <span className="count">{withoutActions.length} partners</span>
-          </div>
-          {openWithoutActions && (
-            <PartnerTable partners={withoutActions} liveData={liveData} ticks={ticks} onTick={onTick} />
+            displayPartners.length === 0
+              ? <div className="empty" style={{ fontSize: 12 }}>No partners match this time window.</div>
+              : <PartnerTable partners={displayPartners} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
           )}
         </>
       )}
