@@ -64,7 +64,15 @@ async def get_weekly():
 
 @app.post("/api/sync")
 async def trigger_sync():
-    await do_sync()
+    import traceback
+    try:
+        await do_sync()
+    except Exception as e:
+        return {
+            "ok":    False,
+            "error": str(e),
+            "trace": traceback.format_exc(),
+        }
     return {
         "ok":             True,
         "partners_synced": len(_cache["live_data"]),
