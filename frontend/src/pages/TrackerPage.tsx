@@ -31,6 +31,7 @@ export default function TrackerPage() {
   const [cadenceDays,        setCadenceDays]        = useState(14)
   const [openWithActions,    setOpenWithActions]    = useState(true)
   const [withActionsDays,    setWithActionsDays]    = useState(0)
+  const [openWithoutActions, setOpenWithoutActions] = useState(true)
 
   const [sbu,    setSbu]    = useState("")
   const [type,   setType]   = useState("")
@@ -198,28 +199,25 @@ export default function TrackerPage() {
     (manualActions[p.name] || []).length > 0
 
   const stageOrd: Record<string, number> = { "GTM Active": 0, "Business Referred": 1, "Discussion Initiated": 2 }
-  const sortFn = (a: Partner, b: Partner) => {
-    // partners with actions always sort before those without
-    const ha = hasAny(a) ? 0 : 1, hb = hasAny(b) ? 0 : 1
-    if (ha !== hb) return ha - hb
-    return (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
-  }
+  const sortFn = (a: Partner, b: Partner) =>
+    (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
 
-  let displayPartners = [...filtered].sort(sortFn)
-  if (view === "actions") displayPartners = displayPartners.filter(hasAny)
-  if (view === "idle")    displayPartners = displayPartners.filter(p => !hasAny(p))
+  let withActions    = filtered.filter(hasAny).sort(sortFn)
+  let withoutActions = filtered.filter(p => !hasAny(p)).sort(sortFn)
+  if (view === "actions") withoutActions = []
+  if (view === "idle")    withActions    = []
 
   if (withActionsDays > 0) {
     const waCutoff = new Date()
     waCutoff.setDate(waCutoff.getDate() - withActionsDays)
-    displayPartners = displayPartners.filter(p => {
+    withActions = withActions.filter(p => {
       const lm = liveData[p.name]?.last_meeting || p.last_meeting
       const d  = parseDate(lm)
       return d !== null && d >= waCutoff
     })
   }
 
-  const total        = filtered.length
+  const total        = withActions.length + withoutActions.length
   const gtm          = filtered.filter(p => p.stage === "GTM Active").length
   const referred     = filtered.filter(p => p.stage === "Business Referred").length
   const openActions  = filtered.reduce((s, p) => {
@@ -323,7 +321,8 @@ export default function TrackerPage() {
 
       {!total && <div className="empty">No partners match the current filters.</div>}
 
-      {total > 0 && (
+      {/* Section 1 — always visible so the table never disappears */}
+      {view !== "idle" && (
         <>
           <div className="section-hdr collapsible" onClick={() => setOpenWithActions(o => !o)}>
             <span className={`chevron ${openWithActions ? "open" : ""}`}>&#x203A;</span>
@@ -340,12 +339,25 @@ export default function TrackerPage() {
               <option value={30}>Last 30 days</option>
               <option value={60}>Last 60 days</option>
             </select>
-            <span className="count">{displayPartners.length} partners</span>
+            <span className="count">{withActions.length} partners</span>
           </div>
           {openWithActions && (
-            displayPartners.length === 0
-              ? <div className="empty" style={{ fontSize: 12 }}>No partners match this time window.</div>
-              : <PartnerTable partners={displayPartners} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
+            withActions.length === 0
+              ? <div className="empty" style={{ fontSize: 12 }}>No partners with open next steps{withActionsDays > 0 ? " in this time window" : ""}. Use + Add below to log one.</div>
+              : <PartnerTable partners={withActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
+          )}
+        </>
+      )}
+
+      {/* Section 2 — partners with no actions */}
+      {withoutActions.length > 0 && view !== "actions" && (
+        <>
+          <div className="section-hdr idle collapsible" onClick={() => setOpenWithoutActions(o => !o)}>
+            <span className={`chevron ${openWithoutActions ? "open" : ""}`}>&#x203A;</span>
+            Partners with no logged next steps <span className="count">{withoutActions.length} partners</span>
+          </div>
+          {openWithoutActions && (
+            <PartnerTable partners={withoutActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
           )}
         </>
       )}
