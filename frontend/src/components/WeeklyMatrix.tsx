@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { WeekRow } from '../types'
 
 const SBUS  = ['US', 'India', 'MEA', 'Global', 'Unassigned'] as const
@@ -17,6 +18,7 @@ interface Popover {
 }
 
 export default function WeeklyMatrix({ weekly }: { weekly: WeekRow[] }) {
+  const navigate = useNavigate()
   const [popover, setPopover] = useState<Popover | null>(null)
   const popRef = useRef<HTMLDivElement>(null)
 
@@ -140,15 +142,19 @@ export default function WeeklyMatrix({ weekly }: { weekly: WeekRow[] }) {
           {popover.partners.length > 0 ? (
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {popover.partners.map(p => (
-                <li key={p} style={{ fontSize: 12, color: '#1e293b', padding: '3px 0', borderBottom: '1px solid #f1f5f9', fontWeight: 500 }}>
-                  {p}
+                <li key={p} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <button
+                    onClick={() => { setPopover(null); navigate(`/partner/${encodeURIComponent(p)}`) }}
+                    style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#0f766e', fontWeight: 600, padding: '5px 0', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    {p} <span style={{ fontSize: 10, opacity: 0.6 }}>→</span>
+                  </button>
                 </li>
               ))}
             </ul>
           ) : (
             <div style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-              Partner names not tracked for historical weeks.
-              <br />Sync will populate current week automatically.
+              Names not tracked for this cell.
             </div>
           )}
           <button
