@@ -16,24 +16,30 @@ function daysAgo(s: string): number | null {
 
 export default function PartnerViewPage() {
   const { name } = useParams<{ name: string }>()
-  const [partner,  setPartner]  = useState<Partner | null>(null)
-  const [liveData, setLiveData] = useState<LiveData | null>(null)
-  const [loading,  setLoading]  = useState(true)
-  const [copied,   setCopied]   = useState(false)
+  const [partner,       setPartner]       = useState<Partner | null>(null)
+  const [liveData,      setLiveData]      = useState<LiveData | null>(null)
+  const [manualActions, setManualActions] = useState<string[]>([])
+  const [loading,       setLoading]       = useState(true)
+  const [copied,        setCopied]        = useState(false)
 
   const decodedName = name ? decodeURIComponent(name) : ''
 
   useEffect(() => {
     async function load() {
       try {
-        const r = await fetch('/api/partners')
-        const d = await r.json()
-        const p = (d.partners as Partner[]).find(
+        const [pr, mr] = await Promise.all([
+          fetch('/api/partners'),
+          fetch('/api/manual-actions'),
+        ])
+        const pd = await pr.json()
+        const md = await mr.json()
+        const p = (pd.partners as Partner[]).find(
           x => x.name.toLowerCase() === decodedName.toLowerCase()
         )
         if (!p) { setLoading(false); return }
         setPartner(p)
-        setLiveData(d.live_data?.[p.name] || null)
+        setLiveData(pd.live_data?.[p.name] || null)
+        setManualActions((md.manual_actions?.[p.name] || []) as string[])
       } catch { } finally { setLoading(false) }
     }
     load()
@@ -66,7 +72,11 @@ export default function PartnerViewPage() {
   const lvAct   = (liveData?.actions || []).filter(
     la => !hcAct.some(ha => ha.toLowerCase().trim() === la.toLowerCase().trim())
   )
-  const allActions = [...hcAct, ...lvAct]
+  const mnAct   = manualActions.filter(
+    ma => !hcAct.some(ha => ha.toLowerCase().trim() === ma.toLowerCase().trim()) &&
+          !lvAct.some(la => la.toLowerCase().trim() === ma.toLowerCase().trim())
+  )
+  const allActions = [...hcAct, ...lvAct, ...mnAct]
   const prospects  = partner.prospects || []
   const reportUrl  = liveData?.report_url || ''
   const today      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
