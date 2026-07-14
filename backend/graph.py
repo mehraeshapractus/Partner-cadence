@@ -74,40 +74,62 @@ def _match_partner_by_title(title: str) -> Dict | None:
 
 # ── Nodes ────────────────────────────────────────────────────────────────────
 
+def _get_folders(m: dict) -> list:
+    """Read.ai uses different field names across API versions."""
+    for key in ("folders", "folder", "collections", "collection", "tags", "labels"):
+        val = m.get(key)
+        if val:
+            return [val] if isinstance(val, str) else list(val)
+    return []
+
+
+def _is_partner_meeting(m: dict) -> bool:
+    """Match by folder/collection name or by meeting title vs known partners."""
+    folder_strs = [str(f).lower() for f in _get_folders(m)]
+    PARTNER_KEYWORDS = ("partner", "alignment", "cadence", "planning", "bd", "intro")
+    if any(kw in f for f in folder_strs for kw in PARTNER_KEYWORDS):
+        return True
+    # Also match if meeting title mentions a known partner
+    return _match_partner_by_title(m.get("title", "")) is not None
+
+
 async def fetch_readai_meetings(state: SyncState) -> SyncState:
-    """Pull meetings from Read.ai (last 30 days); keep only Partner Cadence calls."""
+    """Pull ALL Read.ai meetings (paginated); keep partner/alignment calls."""
     token = await _readai_token() or READAI_API_KEY
     if not token:
         state["errors"].append("Read.ai not authorized — run readai_setup.py")
         return state
 
-    since_ms = int((datetime.now(timezone.utc) - timedelta(days=30)).timestamp() * 1000)
-    headers  = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"}
+    all_meetings: list = []
 
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.get(
-                f"{READAI_BASE}/meetings",
-                headers=headers,
-                params={"page_size": 50},
-            )
-            r.raise_for_status()
-            all_meetings = r.json().get("data", [])
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Paginate through all meetings
+            cursor = None
+            while True:
+                params: dict = {"page_size": 100}
+                if cursor:
+                    params["cursor"] = cursor
+                r = await client.get(f"{READAI_BASE}/meetings", headers=headers, params=params)
+                r.raise_for_status()
+                body = r.json()
+                page = body.get("data", [])
+                all_meetings.extend(page)
+                # Stop if fewer results than requested (last page) or no cursor
+                next_cursor = (body.get("pagination") or body.get("meta") or {}).get("next_cursor") or body.get("next_cursor")
+                if not next_cursor or len(page) < 100:
+                    break
+                cursor = next_cursor
     except Exception as e:
         state["errors"].append(f"Read.ai list_meetings error: {e}")
         return state
 
-    # Keep meetings from last 30 days that are partner/alignment/cadence calls
-    def _is_partner_meeting(m: dict) -> bool:
-        folders = [f.lower() for f in (m.get("folders") or [])]
-        # Going-forward tags: partnership, alignment, cadence, planning (partner planning)
-        if any(kw in f for f in folders for kw in ("partner", "alignment", "cadence", "planning")):
-            return True
-        # Historical fallback: match by title against known partners
-        title = m.get("title", "")
-        return _match_partner_by_title(title) is not None
-
-    cadence = [m for m in all_meetings if m.get("start_time_ms", 0) >= since_ms and _is_partner_meeting(m)]
+    # No time restriction — look at all meetings; filter to partner calls only
+    cadence = [m for m in all_meetings if _is_partner_meeting(m)]
+    # Fallback: if folder filter returns nothing, accept all meetings and rely on title matching in details
+    if not cadence:
+        cadence = all_meetings
     state["meetings"] = cadence
     return state
 
@@ -131,19 +153,26 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
         for t in ["BD Partner", "Partner", "SME"]
     }
 
-    # Fetch all meeting details in parallel so we can extract action items
+    # Fetch all meeting details in parallel so we can extract action items.
+    # Also try /report endpoint — meetings with live_enabled=False store manual
+    # notes and actions there rather than in the main detail response.
     async def _fetch_detail(client: httpx.AsyncClient, meeting_id: str) -> Dict:
         if not meeting_id or not headers:
             return {}
-        try:
-            r = await client.get(f"{READAI_BASE}/meetings/{meeting_id}", headers=headers)
-            if r.status_code == 200:
-                return r.json()
-        except Exception as e:
-            state["errors"].append(f"Read.ai detail {meeting_id}: {e}")
-        return {}
+        merged: Dict = {}
+        for path in (f"{READAI_BASE}/meetings/{meeting_id}", f"{READAI_BASE}/meetings/{meeting_id}/report"):
+            try:
+                r = await client.get(path, headers=headers)
+                if r.status_code == 200:
+                    body = r.json()
+                    # Unwrap "data" wrapper if present
+                    data = body.get("data", body)
+                    merged.update({k: v for k, v in data.items() if v})
+            except Exception as e:
+                state["errors"].append(f"Read.ai {path}: {e}")
+        return merged
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         details_list = await asyncio.gather(*[
             _fetch_detail(client, m.get("id", "")) for m in state["meetings"]
         ])
@@ -170,35 +199,50 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
         else:
             title = raw_title
 
-        # Extract action items from the meeting detail response
-        # Read.ai wraps detail responses in a "data" key
-        detail_raw = detail_map.get(meeting.get("id", ""), {})
-        detail = detail_raw.get("data", detail_raw)  # unwrap "data" if present
-        raw_actions = (
-            detail.get("action_items")
-            or (detail.get("summary") or {}).get("action_items")
-            or detail_raw.get("action_items")
-            or (detail_raw.get("summary") or {}).get("action_items")
-            or []
-        )
-        action_items: List[str] = []
-        for item in raw_actions:
-            if isinstance(item, str):
-                text = item.strip()
-            elif isinstance(item, dict):
-                text = (item.get("text") or item.get("title") or item.get("action") or "").strip()
-            else:
-                text = ""
-            if text:
-                action_items.append(text)
+        # Extract action items from merged detail+report response.
+        # Read.ai stores actions in several places depending on meeting type.
+        detail = detail_map.get(meeting.get("id", ""), {})
+        summary_block = detail.get("summary") or {}
 
-        # Email-only participant match, then title fallback
+        def _extract_items(raw) -> List[str]:
+            out = []
+            if not raw:
+                return out
+            if isinstance(raw, str):
+                return [raw.strip()] if raw.strip() else []
+            for item in raw:
+                if isinstance(item, str):
+                    t = item.strip()
+                elif isinstance(item, dict):
+                    t = (item.get("text") or item.get("title") or item.get("action")
+                         or item.get("description") or item.get("content") or "").strip()
+                else:
+                    t = ""
+                if t:
+                    out.append(t)
+            return out
+
+        action_items: List[str] = (
+            _extract_items(detail.get("action_items"))
+            or _extract_items(summary_block.get("action_items"))
+            or _extract_items(detail.get("next_steps"))
+            or _extract_items(summary_block.get("next_steps"))
+            or _extract_items(detail.get("key_decisions"))
+            or _extract_items(summary_block.get("key_decisions"))
+        )
+
+        # Match by email, participant name, then meeting title
         matched_partners: set = set()
         for participant in participants:
             p_email = participant.get("email", "") or ""
             m = _match_partner(p_email)
             if m:
                 matched_partners.add(m["name"])
+            # Also try matching participant display name against known partners
+            p_name = participant.get("name", "") or ""
+            m2 = _match_partner_by_title(p_name) if p_name else None
+            if m2:
+                matched_partners.add(m2["name"])
 
         m = _match_partner_by_title(title)
         if m:

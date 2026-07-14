@@ -158,6 +158,59 @@ async def health():
     return {"ok": True, "synced_at": _cache["synced_at"]}
 
 
+@app.get("/api/debug-readai")
+async def debug_readai():
+    """Fetch first page of Read.ai meetings and return raw response for debugging."""
+    import httpx
+    from readai_auth import get_access_token as _readai_token
+    token = await _readai_token()
+    if not token:
+        return {"error": "Not authorized — run readai_setup.py and set READAI_TOKEN_JSON in Railway"}
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                "https://api.read.ai/v1/meetings",
+                headers=headers,
+                params={"page_size": 10},
+            )
+            body = r.json()
+            meetings = body.get("data", [])
+            # Show raw fields for first 10 meetings
+            sample = []
+            for m in meetings[:10]:
+                sample.append({
+                    "id": m.get("id"),
+                    "title": m.get("title"),
+                    "start_time_ms": m.get("start_time_ms"),
+                    "live_enabled": m.get("live_enabled"),
+                    "platform": m.get("platform"),
+                    "folders": m.get("folders"),
+                    "folder": m.get("folder"),
+                    "collections": m.get("collections"),
+                    "collection": m.get("collection"),
+                    "tags": m.get("tags"),
+                    "report_url": m.get("report_url"),
+                    "all_keys": list(m.keys()),
+                })
+            # Also fetch detail for first meeting
+            detail_sample = {}
+            if meetings:
+                mid = meetings[0].get("id")
+                dr = await client.get(f"https://api.read.ai/v1/meetings/{mid}", headers=headers)
+                if dr.status_code == 200:
+                    detail_sample = dr.json()
+            return {
+                "status_code": r.status_code,
+                "total_count": len(meetings),
+                "pagination": body.get("pagination") or body.get("meta") or body.get("next_cursor"),
+                "meetings_sample": sample,
+                "first_meeting_detail_keys": list((detail_sample.get("data") or detail_sample).keys()),
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ── Production: serve Vite build ──────────────────────────────────────────────
 _DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
