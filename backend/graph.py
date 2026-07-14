@@ -171,10 +171,14 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
             title = raw_title
 
         # Extract action items from the meeting detail response
-        detail = detail_map.get(meeting.get("id", ""), {})
+        # Read.ai wraps detail responses in a "data" key
+        detail_raw = detail_map.get(meeting.get("id", ""), {})
+        detail = detail_raw.get("data", detail_raw)  # unwrap "data" if present
         raw_actions = (
             detail.get("action_items")
             or (detail.get("summary") or {}).get("action_items")
+            or detail_raw.get("action_items")
+            or (detail_raw.get("summary") or {}).get("action_items")
             or []
         )
         action_items: List[str] = []
