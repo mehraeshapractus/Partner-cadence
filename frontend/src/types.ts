@@ -26,11 +26,16 @@ export interface WeeklyCell {
   US: number; India: number; MEA: number; Global: number; Unassigned: number
 }
 
+export interface WeeklyCellPartners {
+  US: string[]; India: string[]; MEA: string[]; Global: string[]; Unassigned: string[]
+}
+
 export interface WeekRow {
   week: string
   current: boolean
   note?: string
   cells: { 'BD Partner': WeeklyCell; Partner: WeeklyCell; SME: WeeklyCell }
+  cell_partners?: { 'BD Partner': WeeklyCellPartners; Partner: WeeklyCellPartners; SME: WeeklyCellPartners }
 }
 
 export interface ReportRow extends Partner {

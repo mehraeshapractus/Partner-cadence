@@ -30,6 +30,9 @@ class SyncState(TypedDict):
     meetings: List[Dict]        # raw Partner Cadence meetings from Read.ai
     live_data: Dict[str, Dict]  # keyed by partner name → {notes, actions, last_meeting}
     weekly: List[Dict]          # updated WEEKLY rows
+    week_counts: Dict[str, Dict[str, int]]            # type → sbu → count (current week)
+    week_partners: Dict[str, Dict[str, List[str]]]    # type → sbu → [partner names]
+    week_start_iso: str
     errors: List[str]
     synced_at: str
 
@@ -150,6 +153,10 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
     week_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     week_counts: Dict[str, Dict[str, int]] = {
         t: {"US": 0, "India": 0, "MEA": 0, "Global": 0, "Unassigned": 0}
+        for t in ["BD Partner", "Partner", "SME"]
+    }
+    week_partners: Dict[str, Dict[str, List[str]]] = {
+        t: {"US": [], "India": [], "MEA": [], "Global": [], "Unassigned": []}
         for t in ["BD Partner", "Partner", "SME"]
     }
 
@@ -279,29 +286,60 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
                 sbu = matched.get("sbu", "Unassigned") if matched.get("sbu") in week_counts["BD Partner"] else "Unassigned"
                 typ = matched["type"] if matched["type"] in week_counts else "Partner"
                 week_counts[typ][sbu] += 1
+                if partner_name not in week_partners[typ][sbu]:
+                    week_partners[typ][sbu].append(partner_name)
 
-    # Patch current week in WEEKLY
-    weekly = copy.deepcopy(WEEKLY)
-    for w in weekly:
-        if w.get("current"):
-            for t in ["BD Partner", "Partner", "SME"]:
-                for s in ["US", "India", "MEA", "Global", "Unassigned"]:
-                    w["cells"][t][s] = week_counts[t][s]
-            break
-
-    state["live_data"] = live
-    state["weekly"]    = weekly
+    state["live_data"]      = live
+    state["week_counts"]    = week_counts
+    state["week_partners"]  = week_partners
+    state["week_start_iso"] = week_start.isoformat()
     return state
 
 
 async def fetch_outlook_calendar(state: SyncState) -> SyncState:
     """Pull Myrah's Outlook calendar (last 30 days); match partner meetings by attendee email."""
+    _SBUS = ["US", "India", "MEA", "Global", "Unassigned"]
+    _TYPES = ["BD Partner", "Partner", "SME"]
+
+    # Retrieve week tracking state from previous node (or initialise defaults)
+    week_counts: Dict[str, Dict[str, int]] = state.get(
+        "week_counts",
+        {t: {s: 0 for s in _SBUS} for t in _TYPES}
+    )
+    week_partners: Dict[str, Dict[str, List[str]]] = state.get(
+        "week_partners",
+        {t: {s: [] for s in _SBUS} for t in _TYPES}
+    )
+    week_start_iso = state.get("week_start_iso", "")
+    if week_start_iso:
+        week_start = datetime.fromisoformat(week_start_iso).replace(tzinfo=timezone.utc)
+    else:
+        now_tmp    = datetime.now(timezone.utc)
+        week_start = (now_tmp - timedelta(days=now_tmp.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def _patch_weekly(wc: Dict, wp: Dict) -> List[Dict]:
+        weekly = copy.deepcopy(WEEKLY)
+        for w in weekly:
+            if w.get("current"):
+                for t in _TYPES:
+                    for s in _SBUS:
+                        w["cells"][t][s] = wc[t][s]
+                if "cell_partners" not in w:
+                    w["cell_partners"] = {t: {s: [] for s in _SBUS} for t in _TYPES}
+                for t in _TYPES:
+                    for s in _SBUS:
+                        w["cell_partners"][t][s] = list(wp[t][s])
+                break
+        return weekly
+
     token = await _graph_delegated_token()
     if not token:
         state["errors"].append("Outlook not authorized — run outlook_setup.py")
+        state["weekly"] = _patch_weekly(week_counts, week_partners)
         return state
     if not MYRAH_EMAIL:
         state["errors"].append("MYRAH_EMAIL not configured in .env")
+        state["weekly"] = _patch_weekly(week_counts, week_partners)
         return state
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -352,6 +390,7 @@ async def fetch_outlook_calendar(state: SyncState) -> SyncState:
         if organizer.get("address"):
             event_emails.add(organizer["address"].lower())
 
+        counted_partners_this_event: set = set()
         for email in event_emails:
             p = email_to_partner.get(email)
             if not p:
@@ -371,7 +410,24 @@ async def fetch_outlook_calendar(state: SyncState) -> SyncState:
             if note_line not in ld["notes"]:
                 ld["notes"] = note_line + ("\n\n" + ld["notes"] if ld["notes"] else "")
 
-    state["live_data"] = live
+            # Tally current-week count (each partner counted once per event)
+            if start_dt and key not in counted_partners_this_event:
+                try:
+                    ev_dt = datetime.fromisoformat(start_dt.rstrip("Z") + "+00:00")
+                except ValueError:
+                    ev_dt = None
+                if ev_dt and ev_dt >= week_start:
+                    sbu = p.get("sbu", "Unassigned") if p.get("sbu") in week_counts.get("BD Partner", {}) else "Unassigned"
+                    typ = p.get("type", "Partner") if p.get("type") in week_counts else "Partner"
+                    week_counts[typ][sbu] += 1
+                    if key not in week_partners[typ][sbu]:
+                        week_partners[typ][sbu].append(key)
+                    counted_partners_this_event.add(key)
+
+    state["live_data"]   = live
+    state["week_counts"] = week_counts
+    state["week_partners"] = week_partners
+    state["weekly"]      = _patch_weekly(week_counts, week_partners)
     return state
 
 
@@ -401,11 +457,16 @@ _graph = build_sync_graph()
 
 
 async def run_sync() -> Dict[str, Any]:
+    _sbus  = ["US", "India", "MEA", "Global", "Unassigned"]
+    _types = ["BD Partner", "Partner", "SME"]
     initial: SyncState = {
-        "meetings":  [],
-        "live_data": {},
-        "weekly":    copy.deepcopy(WEEKLY),
-        "errors":    [],
-        "synced_at": "",
+        "meetings":       [],
+        "live_data":      {},
+        "weekly":         copy.deepcopy(WEEKLY),
+        "week_counts":    {t: {s: 0  for s in _sbus} for t in _types},
+        "week_partners":  {t: {s: [] for s in _sbus} for t in _types},
+        "week_start_iso": "",
+        "errors":         [],
+        "synced_at":      "",
     }
     return await _graph.ainvoke(initial)
