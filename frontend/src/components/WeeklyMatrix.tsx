@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { WeekRow } from '../types'
+import { WeekRow, LiveData } from '../types'
 
 const SBUS  = ['US', 'India', 'MEA', 'Global', 'Unassigned'] as const
 const TYPES = ['BD Partner', 'Partner', 'SME'] as const
@@ -17,7 +17,7 @@ interface Popover {
   y: number
 }
 
-export default function WeeklyMatrix({ weekly }: { weekly: WeekRow[] }) {
+export default function WeeklyMatrix({ weekly, liveData = {} }: { weekly: WeekRow[], liveData?: Record<string, LiveData> }) {
   const navigate = useNavigate()
   const [popover, setPopover] = useState<Popover | null>(null)
   const popRef = useRef<HTMLDivElement>(null)
@@ -144,10 +144,22 @@ export default function WeeklyMatrix({ weekly }: { weekly: WeekRow[] }) {
               {popover.partners.map(p => (
                 <li key={p} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <button
-                    onClick={() => { setPopover(null); navigate(`/partner/${encodeURIComponent(p)}`) }}
+                    onClick={() => {
+                      setPopover(null)
+                      const reportUrl = liveData[p]?.report_url
+                      if (reportUrl) {
+                        window.open(reportUrl, '_blank', 'noopener,noreferrer')
+                      } else {
+                        navigate(`/partner/${encodeURIComponent(p)}`)
+                      }
+                    }}
+                    title={liveData[p]?.report_url ? 'Open Read.ai report' : 'View partner details'}
                     style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#0f766e', fontWeight: 600, padding: '5px 0', display: 'flex', alignItems: 'center', gap: 4 }}
                   >
-                    {p} <span style={{ fontSize: 10, opacity: 0.6 }}>→</span>
+                    {p}
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>
+                      {liveData[p]?.report_url ? '↗' : '→'}
+                    </span>
                   </button>
                 </li>
               ))}
