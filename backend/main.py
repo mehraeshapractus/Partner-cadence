@@ -52,6 +52,7 @@ async def do_sync():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _load_manual()
+    _load_prospects()
     asyncio.create_task(do_sync())   # warm sync on startup
     yield
 
@@ -69,7 +70,10 @@ app.add_middleware(
 
 @app.get("/api/partners")
 async def get_partners():
-    partners = [{**p, "prospects": p.get("prospects", [])} for p in PARTNERS]
+    partners = [
+        {**p, "prospects": list(p.get("prospects", [])) + _prospects.get(p["name"], [])}
+        for p in PARTNERS
+    ]
     return {
         "partners":   partners,
         "live_data":  _cache["live_data"],
@@ -129,6 +133,25 @@ async def get_report():
     }
 
 
+# Manual prospects — persisted to file
+PROSPECTS_FILE: Path = Path(__file__).parent / "manual_prospects.json"
+_prospects: Dict[str, List[str]] = {}
+
+def _load_prospects():
+    global _prospects
+    try:
+        if PROSPECTS_FILE.exists():
+            _prospects = json.loads(PROSPECTS_FILE.read_text())
+    except Exception:
+        _prospects = {}
+
+def _save_prospects():
+    try:
+        PROSPECTS_FILE.write_text(json.dumps(_prospects, indent=2))
+    except Exception:
+        pass
+
+
 @app.get("/api/manual-actions")
 async def get_manual_actions():
     return {"manual_actions": _manual}
@@ -150,6 +173,30 @@ async def delete_manual_action(partner_name: str, index: int):
         if not acts:
             del _manual[partner_name]
         _save_manual()
+    return {"ok": True}
+
+
+@app.get("/api/manual-prospects")
+async def get_manual_prospects():
+    return {"manual_prospects": _prospects}
+
+@app.post("/api/manual-prospects/{partner_name}")
+async def add_manual_prospect(partner_name: str, body: dict = Body(...)):
+    text = (body.get("text") or "").strip()
+    if not text:
+        return {"ok": False, "error": "empty text"}
+    _prospects.setdefault(partner_name, []).append(text)
+    _save_prospects()
+    return {"ok": True, "prospects": _prospects[partner_name]}
+
+@app.delete("/api/manual-prospects/{partner_name}/{index}")
+async def delete_manual_prospect(partner_name: str, index: int):
+    pros = _prospects.get(partner_name, [])
+    if 0 <= index < len(pros):
+        pros.pop(index)
+        if not pros:
+            del _prospects[partner_name]
+        _save_prospects()
     return {"ok": True}
 
 

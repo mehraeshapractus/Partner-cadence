@@ -11,6 +11,9 @@ interface Props {
   manualActions: Record<string, string[]>
   onAddAction: (partnerName: string, text: string) => void
   onDeleteAction: (partnerName: string, index: number) => void
+  manualProspects: Record<string, string[]>
+  onAddProspect: (partnerName: string, text: string) => void
+  onDeleteProspect: (partnerName: string, index: number) => void
 }
 
 function typeClass(t: string) {
@@ -184,10 +187,12 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
   )
 }
 
-export default function PartnerTable({ partners, liveData, ticks, onTick, manualActions, onAddAction, onDeleteAction }: Props) {
+export default function PartnerTable({ partners, liveData, ticks, onTick, manualActions, onAddAction, onDeleteAction, manualProspects, onAddProspect, onDeleteProspect }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const [addingFor, setAddingFor] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [addingProspectFor, setAddingProspectFor] = useState<string | null>(null)
+  const [prospectDraft, setProspectDraft] = useState('')
   const navigate = useNavigate()
 
   const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Meeting Notes & Key Updates', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
@@ -342,16 +347,41 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                 </td>
 
                 <td style={{ minWidth: 160 }}>
-                  {(p.prospects || []).length === 0
-                    ? <span className="placeholder">&mdash;</span>
-                    : <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {(p.prospects || []).map((pr, pi) => (
-                          <span key={pi} style={{ fontSize: 10.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 7px', display: 'inline-block', whiteSpace: 'nowrap', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }} title={pr}>
-                            {pr}
-                          </span>
-                        ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {(p.prospects || []).map((pr, pi) => {
+                      const isManual = pi >= (p.prospects || []).length - (manualProspects[p.name] || []).length
+                      const manualIdx = pi - ((p.prospects || []).length - (manualProspects[p.name] || []).length)
+                      return (
+                        <span key={pi} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ fontSize: 10.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 7px', whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={pr}>{pr}</span>
+                          {isManual && (
+                            <button onClick={() => onDeleteProspect(p.name, manualIdx)} title="Remove"
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '0 1px', lineHeight: 1, flexShrink: 0 }}>&times;</button>
+                          )}
+                        </span>
+                      )
+                    })}
+                    {addingProspectFor === p.name ? (
+                      <div style={{ display: 'flex', gap: 3, marginTop: 2 }}>
+                        <input autoFocus value={prospectDraft} onChange={e => setProspectDraft(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) }
+                            if (e.key === 'Escape') { setAddingProspectFor(null); setProspectDraft('') }
+                          }}
+                          placeholder="Prospect name..."
+                          style={{ flex: 1, fontSize: 10.5, padding: '2px 5px', border: '1px solid #fde68a', borderRadius: 3, outline: 'none', minWidth: 0 }} />
+                        <button onClick={() => { if (prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) } }}
+                          style={{ fontSize: 10, padding: '2px 6px', background: '#854d0e', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}>+</button>
+                        <button onClick={() => { setAddingProspectFor(null); setProspectDraft('') }}
+                          style={{ fontSize: 10, padding: '2px 5px', background: 'none', border: '1px solid var(--border)', borderRadius: 3, cursor: 'pointer' }}>✕</button>
                       </div>
-                  }
+                    ) : (
+                      <button onClick={() => { setAddingProspectFor(p.name); setProspectDraft('') }}
+                        style={{ fontSize: 10, color: '#92400e', background: 'none', border: '1px dashed #fde68a', borderRadius: 3, padding: '2px 7px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                        + Add
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="placeholder" style={{ fontStyle: 'italic', fontSize: 11 }}>(inferred)</td>
                 <td><span className="spoc-pill">{p.spoc || '—'}</span></td>

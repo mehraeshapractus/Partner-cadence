@@ -25,7 +25,8 @@ export default function TrackerPage() {
   const [ticks,         setTicks]         = useState<Record<string, { at: string }>>(loadTicks)
   const [loading,       setLoading]       = useState(true)
   const [syncedAt,      setSyncedAt]      = useState<string | null>(null)
-  const [manualActions, setManualActions] = useState<Record<string, string[]>>({})
+  const [manualActions,   setManualActions]   = useState<Record<string, string[]>>({})
+  const [manualProspects, setManualProspects] = useState<Record<string, string[]>>({})
 
   const [openCadence,        setOpenCadence]        = useState(true)
   const [cadenceDays,        setCadenceDays]        = useState(14)
@@ -42,15 +43,17 @@ export default function TrackerPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [pRes, wRes, mRes] = await Promise.all([fetch("/api/partners"), fetch("/api/weekly"), fetch("/api/manual-actions")])
+      const [pRes, wRes, mRes, prRes] = await Promise.all([fetch("/api/partners"), fetch("/api/weekly"), fetch("/api/manual-actions"), fetch("/api/manual-prospects")])
       const pJson = await pRes.json()
       const wJson = await wRes.json()
       const mJson = await mRes.json()
+      const prJson = await prRes.json()
       setPartners(pJson.partners || [])
       setLiveData(pJson.live_data || {})
       setWeekly(wJson.weekly || [])
       setSyncedAt(pJson.synced_at)
       setManualActions(mJson.manual_actions || {})
+      setManualProspects(prJson.manual_prospects || {})
     } catch { } finally {
       setLoading(false)
     }
@@ -72,6 +75,26 @@ export default function TrackerPage() {
       acts.splice(index, 1)
       const next = { ...prev }
       if (acts.length) next[partnerName] = acts; else delete next[partnerName]
+      return next
+    })
+  }, [])
+
+  const addManualProspect = useCallback(async (partnerName: string, text: string) => {
+    const r = await fetch(`/api/manual-prospects/${encodeURIComponent(partnerName)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+    const d = await r.json()
+    if (d.ok) setManualProspects(prev => ({ ...prev, [partnerName]: d.prospects }))
+  }, [])
+
+  const deleteManualProspect = useCallback(async (partnerName: string, index: number) => {
+    await fetch(`/api/manual-prospects/${encodeURIComponent(partnerName)}/${index}`, { method: "DELETE" })
+    setManualProspects(prev => {
+      const pros = [...(prev[partnerName] || [])]
+      pros.splice(index, 1)
+      const next = { ...prev }
+      if (pros.length) next[partnerName] = pros; else delete next[partnerName]
       return next
     })
   }, [])
@@ -343,7 +366,7 @@ export default function TrackerPage() {
       {openWithActions && (
         withActions.length === 0
           ? <div className="empty" style={{ fontSize: 12 }}>No partners with open next steps{withActionsDays > 0 ? " in this time window" : ""}. Use + Add below to log one.</div>
-          : <PartnerTable partners={withActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
+          : <PartnerTable partners={withActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} manualProspects={manualProspects} onAddProspect={addManualProspect} onDeleteProspect={deleteManualProspect} />
       )}
 
       {/* Section 2 — partners with no actions */}
@@ -354,7 +377,7 @@ export default function TrackerPage() {
             Partners with no logged next steps <span className="count">{withoutActions.length} partners</span>
           </div>
           {openWithoutActions && (
-            <PartnerTable partners={withoutActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} />
+            <PartnerTable partners={withoutActions} liveData={liveData} ticks={ticks} onTick={onTick} manualActions={manualActions} onAddAction={addManualAction} onDeleteAction={deleteManualAction} manualProspects={manualProspects} onAddProspect={addManualProspect} onDeleteProspect={deleteManualProspect} />
           )}
         </>
       )}
