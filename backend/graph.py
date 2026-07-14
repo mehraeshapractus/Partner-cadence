@@ -321,14 +321,15 @@ async def fetch_outlook_calendar(state: SyncState) -> SyncState:
         weekly = copy.deepcopy(WEEKLY)
         for w in weekly:
             if w.get("current"):
-                for t in _TYPES:
-                    for s in _SBUS:
-                        w["cells"][t][s] = wc[t][s]
                 if "cell_partners" not in w:
                     w["cell_partners"] = {t: {s: [] for s in _SBUS} for t in _TYPES}
                 for t in _TYPES:
                     for s in _SBUS:
-                        w["cell_partners"][t][s] = list(wp[t][s])
+                        existing = w["cell_partners"][t][s]
+                        new_names = [p for p in wp[t][s] if p not in existing]
+                        # Only count partners not already tracked in the baseline
+                        w["cells"][t][s] += len(new_names)
+                        w["cell_partners"][t][s] = existing + new_names
                 break
         return weekly
 
