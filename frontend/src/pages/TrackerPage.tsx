@@ -226,8 +226,23 @@ export default function TrackerPage() {
     !!p.comments
 
   const stageOrd: Record<string, number> = { "GTM Active": 0, "Business Referred": 1, "Discussion Initiated": 2 }
+
+  const hasActions  = (p: Partner) =>
+    (manualActions[p.name] || []).length > 0 ||
+    (liveData[p.name]?.actions || []).length > 0 ||
+    (p.actions || []).length > 0
+  const hasProspects = (p: Partner) => (p.prospects || []).length > 0
+
+  const groupOf = (p: Partner): number => {
+    if (hasActions(p) && hasProspects(p)) return 0
+    if (hasProspects(p)) return 1
+    return 2
+  }
+
   const sortFn = (a: Partner, b: Partner) =>
-    (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) || a.name.localeCompare(b.name)
+    groupOf(a) - groupOf(b) ||
+    (stageOrd[a.stage] ?? 9) - (stageOrd[b.stage] ?? 9) ||
+    a.name.localeCompare(b.name)
 
   let withActions    = filtered.filter(hasAny).sort(sortFn)
   const withoutActions = filtered.filter(p => !hasAny(p)).sort(sortFn)
