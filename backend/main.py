@@ -110,21 +110,28 @@ async def trigger_sync():
 async def get_report():
     rows = []
     for p in PARTNERS:
-        ld = _cache["live_data"].get(p["name"], {})
+        ld       = _cache["live_data"].get(p["name"], {})
+        man_acts = _manual.get(p["name"], [])
+        man_pros = _prospects.get(p["name"], [])
         has_data = (
             bool(p.get("actions"))
             or bool(p.get("comments"))
+            or bool(p.get("last_meeting"))
             or bool(ld.get("notes"))
             or bool(ld.get("actions"))
             or bool(ld.get("last_meeting"))
+            or bool(man_acts)
+            or bool(man_pros)
         )
         if not has_data:
             continue
         rows.append({
             **p,
-            "live_notes":        ld.get("notes", ""),
-            "live_actions":      ld.get("actions", []),
+            "live_notes":       ld.get("notes", ""),
+            "live_actions":     ld.get("actions", []),
             "live_last_meeting": ld.get("last_meeting", ""),
+            "manual_actions":   man_acts,
+            "manual_prospects": man_pros,
         })
     return {
         "rows":         rows,

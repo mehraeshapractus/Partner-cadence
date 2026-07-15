@@ -42,4 +42,6 @@ export interface ReportRow extends Partner {
   live_notes: string
   live_actions: string[]
   live_last_meeting: string
+  manual_actions: string[]
+  manual_prospects: string[]
 }

@@ -105,50 +105,57 @@ export default function ReportPage() {
             <thead>
               <tr>
                 <th style={{ width: 32 }}>#</th>
-                <th style={{ minWidth: 120 }}>Partner / Contact</th>
-                <th style={{ minWidth: 110 }}>Company</th>
-                <th style={{ minWidth: 140 }}>Email</th>
-                <th style={{ minWidth: 90 }}>Type</th>
-                <th style={{ minWidth: 80 }}>Status</th>
+                <th style={{ minWidth: 140 }}>Partner</th>
+                <th style={{ minWidth: 110 }}>Contact</th>
+                <th style={{ minWidth: 70 }}>Type</th>
+                <th style={{ minWidth: 70 }}>SBU</th>
+                <th style={{ minWidth: 70 }}>Status</th>
                 <th style={{ minWidth: 90 }}>Last Meeting</th>
-                <th style={{ minWidth: 200, maxWidth: 240 }}>Meeting Notes &amp; Key Updates</th>
-                <th style={{ minWidth: 200 }}>Open Actions</th>
-                <th style={{ minWidth: 120 }}>Pipeline Leads</th>
-                <th style={{ minWidth: 170 }}>Next Step + Flag</th>
+                <th style={{ minWidth: 200, maxWidth: 260 }}>Meeting Notes</th>
+                <th style={{ minWidth: 220 }}>Open Actions</th>
+                <th style={{ minWidth: 160 }}>Prospects in Pipeline</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((row, i) => {
-                const contact  = row.partner_spoc || row.name
-                const lm       = row.live_last_meeting || row.last_meeting
-                const notes    = row.live_notes || row.comments
-                const hcAct    = row.actions || []
-                const lvAct    = (row.live_actions || []).filter(
+                const lm      = row.live_last_meeting || row.last_meeting
+                const notes   = row.live_notes || row.comments
+
+                // Merge hardcoded + live + manual actions; deduplicate case-insensitively
+                const hcAct  = row.actions || []
+                const lvAct  = (row.live_actions || []).filter(
                   la => !hcAct.some(ha => ha.toLowerCase().trim() === la.toLowerCase().trim())
                 )
-                const allAct   = [...hcAct, ...lvAct]
+                const manAct = (row.manual_actions || []).filter(
+                  ma => !hcAct.some(ha => ha.toLowerCase().trim() === ma.toLowerCase().trim())
+                       && !lvAct.some(la => la.toLowerCase().trim() === ma.toLowerCase().trim())
+                )
+                const allAct = [...hcAct, ...lvAct, ...manAct]
 
-                // Infer pipeline from action text
-                const leadKw = ['pipeline','lead','client','refer','intro','deal','pursuit','POV','opportunity']
-                const pipeline = allAct.filter(a => leadKw.some(k => a.toLowerCase().includes(k.toLowerCase())))
+                // Use actual prospects from manual_prospects (+ partner.prospects)
+                const prospects = [
+                  ...(row.prospects || []),
+                  ...(row.manual_prospects || []).filter(
+                    mp => !(row.prospects || []).includes(mp)
+                  ),
+                ]
 
-                const nextStep = lvAct[0] || hcAct[0]
+                // Contact: show partner_spoc only if different from the partner name
+                const contact = (row.partner_spoc && row.partner_spoc !== row.name)
+                  ? row.partner_spoc
+                  : '—'
 
                 return (
                   <tr key={row.name}>
                     <td style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: 10.5 }}>{i + 1}</td>
-                    <td><strong style={{ color: 'var(--hdr)', fontSize: 12 }}>{contact}</strong></td>
-                    <td style={{ fontSize: 11.5 }}>{row.name}</td>
-                    <td>
-                      {row.email
-                        ? <a href={`mailto:${row.email}`} style={{ color: 'var(--teal-d)', fontSize: 10.5 }}>{row.email}</a>
-                        : <span className="r-nd">—</span>}
-                    </td>
+                    <td><strong style={{ color: 'var(--hdr)', fontSize: 12 }}>{row.name}</strong></td>
+                    <td style={{ fontSize: 11.5, color: '#374151' }}>{contact}</td>
                     <td>{typeBadge(row.type)}</td>
+                    <td style={{ fontSize: 11, color: '#6b7280' }}>{row.sbu || '—'}</td>
                     <td>{stageBadge(row.stage)}</td>
                     <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{lm || <span className="r-nd">—</span>}</td>
                     <td style={{ fontSize: 11 }}>
-                      {notes || <span className="r-nd">Not discussed</span>}
+                      {notes || <span className="r-nd">—</span>}
                     </td>
                     <td>
                       {allAct.length > 0
@@ -156,23 +163,22 @@ export default function ReportPage() {
                             {allAct.map((a, ai) => (
                               <li key={ai} style={{ fontSize: 11 }}>
                                 <span>{a}</span>
-                                {ai >= hcAct.length && <span className="live-badge">live</span>}
+                                {ai >= hcAct.length && ai < hcAct.length + lvAct.length && (
+                                  <span className="live-badge">live</span>
+                                )}
                               </li>
                             ))}
                           </ul>
-                        : <span className="r-nd">Not discussed</span>}
+                        : <span className="r-nd">—</span>}
                     </td>
                     <td>
-                      {pipeline.length > 0
-                        ? pipeline.map((pl, pi) => (
+                      {prospects.length > 0
+                        ? prospects.map((pr, pi) => (
                             <span key={pi} style={{ display: 'block', fontSize: 10.5, color: 'var(--teal-d)', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '2px 6px', borderRadius: 3, marginBottom: 3 }}>
-                              {pl.length > 60 ? pl.slice(0, 60) + '…' : pl}
+                              {pr}
                             </span>
                           ))
-                        : <span className="r-nd">Not discussed</span>}
-                    </td>
-                    <td style={{ fontSize: 11 }}>
-                      {nextStep || <span className="r-nd">Not discussed</span>}
+                        : <span className="r-nd">—</span>}
                     </td>
                   </tr>
                 )
@@ -183,8 +189,7 @@ export default function ReportPage() {
       )}
 
       <div className="footnote">
-        Row inclusion: status change, meeting update, action item, pipeline lead, next step, or flag must be present.
-        Partners mentioned in passing only are omitted. Generated: {genAt ? new Date(genAt).toLocaleString() : today}.
+        Includes partners with any recorded meeting, action, or prospect. Generated: {genAt ? new Date(genAt).toLocaleString() : today}.
       </div>
     </>
   )
