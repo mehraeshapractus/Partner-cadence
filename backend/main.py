@@ -40,6 +40,24 @@ def _save_manual():
     except Exception:
         pass
 
+# Action states — persisted to file
+STATES_FILE: Path = Path(__file__).parent / "action_states.json"
+_states: Dict[str, Dict[str, str]] = {}
+
+def _load_states():
+    global _states
+    try:
+        if STATES_FILE.exists():
+            _states = json.loads(STATES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        _states = {}
+
+def _save_states():
+    try:
+        STATES_FILE.write_text(json.dumps(_states, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
 
 async def do_sync():
     result = await run_sync()
@@ -53,6 +71,7 @@ async def do_sync():
 async def lifespan(app: FastAPI):
     _load_manual()
     _load_prospects()
+    _load_states()
     asyncio.create_task(do_sync())   # warm sync on startup
     yield
 
@@ -204,6 +223,24 @@ async def delete_manual_prospect(partner_name: str, index: int):
         if not pros:
             del _prospects[partner_name]
         _save_prospects()
+    return {"ok": True}
+
+
+@app.get("/api/action-states/{partner_name}")
+async def get_action_states(partner_name: str):
+    from urllib.parse import unquote
+    pname = unquote(partner_name)
+    return {"states": _states.get(pname, {})}
+
+@app.post("/api/action-states")
+async def set_action_state(body: dict = Body(...)):
+    partner = body.get("partner", "")
+    key     = body.get("key", "")      # first 60 chars of action text, stripped
+    state   = body.get("state", "")   # "open" or "done"
+    if not partner or not key or state not in ("open", "done"):
+        return {"ok": False, "error": "Invalid input"}
+    _states.setdefault(partner, {})[key] = state
+    _save_states()
     return {"ok": True}
 
 

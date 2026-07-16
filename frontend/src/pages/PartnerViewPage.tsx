@@ -21,18 +21,23 @@ export default function PartnerViewPage() {
   const [manualActions, setManualActions] = useState<string[]>([])
   const [loading,       setLoading]       = useState(true)
   const [copied,        setCopied]        = useState(false)
+  const [actionStates,  setActionStates]  = useState<Record<string, string>>({})
 
   const decodedName = name ? decodeURIComponent(name) : ''
+
+  function aKey(text: string) { return text.trim().slice(0, 60) }
 
   useEffect(() => {
     async function load() {
       try {
-        const [pr, mr] = await Promise.all([
+        const [pr, mr, sr] = await Promise.all([
           fetch('/api/partners'),
           fetch('/api/manual-actions'),
+          fetch(`/api/action-states/${encodeURIComponent(decodedName)}`),
         ])
         const pd = await pr.json()
         const md = await mr.json()
+        const sd = await sr.json()
         const p = (pd.partners as Partner[]).find(
           x => x.name.toLowerCase() === decodedName.toLowerCase()
         )
@@ -40,10 +45,22 @@ export default function PartnerViewPage() {
         setPartner(p)
         setLiveData(pd.live_data?.[p.name] || null)
         setManualActions((md.manual_actions?.[p.name] || []) as string[])
+        setActionStates(sd.states || {})
       } catch { } finally { setLoading(false) }
     }
     load()
   }, [decodedName])
+
+  async function toggleDone(text: string) {
+    const key = aKey(text)
+    const next = actionStates[key] === 'done' ? 'open' : 'done'
+    setActionStates(prev => ({ ...prev, [key]: next }))
+    await fetch('/api/action-states', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner: partner!.name, key, state: next }),
+    })
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(window.location.href)
@@ -78,6 +95,15 @@ export default function PartnerViewPage() {
   )
   const allActions = [...hcAct, ...lvAct, ...mnAct]
   const prospects  = partner.prospects || []
+
+  const openActs   = allActions.filter(a => actionStates[aKey(a)] !== 'done')
+  const closedActs = allActions.filter(a => actionStates[aKey(a)] === 'done')
+
+  function srcBadge(a: string, i: number) {
+    if (i < hcAct.length) return null
+    if (i < hcAct.length + lvAct.length) return <span style={{ marginLeft: 6, fontSize: 10, background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 3, padding: '1px 5px' }}>live</span>
+    return <span style={{ marginLeft: 6, fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '1px 5px' }}>manual</span>
+  }
   const reportUrl  = liveData?.report_url || ''
   const today      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -174,29 +200,98 @@ export default function PartnerViewPage() {
         {/* Open Actions */}
         {allActions.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>Open Next Steps</div>
-            <ol style={{ margin: 0, paddingLeft: 20 }}>
-              {allActions.map((a, i) => (
-                <li key={i} style={{ fontSize: 13.5, color: '#1e293b', lineHeight: 1.7, marginBottom: 6, paddingLeft: 4 }}>
-                  {a}
-                  {i >= hcAct.length && (
-                    <span style={{ marginLeft: 8, fontSize: 10, background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 3, padding: '1px 6px', verticalAlign: 'middle' }}>live</span>
-                  )}
-                </li>
-              ))}
-            </ol>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
+              Open Actions <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
+            </div>
+            {openActs.length > 0 ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  {openActs.map((a) => {
+                    const globalIdx = allActions.indexOf(a)
+                    return (
+                      <tr key={a} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ width: 32, paddingTop: 10, paddingBottom: 10, verticalAlign: 'top' }}>
+                          <button
+                            onClick={() => toggleDone(a)}
+                            title="Mark as done"
+                            style={{
+                              width: 20, height: 20, borderRadius: '50%',
+                              border: '2px solid #94a3b8', background: 'transparent',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              padding: 0, flexShrink: 0,
+                            }}
+                          />
+                        </td>
+                        <td style={{ fontSize: 13.5, color: '#1e293b', lineHeight: 1.65, padding: '10px 8px 10px 0', verticalAlign: 'top' }}>
+                          {a}{srcBadge(a, globalIdx)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <div style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>All actions marked as done.</div>
+            )}
+
+            {closedActs.length > 0 && (
+              <details style={{ marginTop: 16 }}>
+                <summary style={{ fontSize: 11, color: '#94a3b8', cursor: 'pointer', fontWeight: 600, userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>▸</span> Closed ({closedActs.length})
+                </summary>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, opacity: 0.65 }}>
+                  <tbody>
+                    {closedActs.map((a) => {
+                      const globalIdx = allActions.indexOf(a)
+                      return (
+                        <tr key={a} style={{ borderBottom: '1px solid #f8fafc' }}>
+                          <td style={{ width: 32, paddingTop: 8, paddingBottom: 8, verticalAlign: 'top' }}>
+                            <button
+                              onClick={() => toggleDone(a)}
+                              title="Reopen action"
+                              style={{
+                                width: 20, height: 20, borderRadius: '50%',
+                                border: '2px solid #14b8a6', background: '#14b8a6',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                padding: 0, color: '#fff', fontSize: 12, fontWeight: 700,
+                              }}
+                            >✓</button>
+                          </td>
+                          <td style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6, padding: '8px 8px 8px 0', textDecoration: 'line-through', verticalAlign: 'top' }}>
+                            {a}{srcBadge(a, globalIdx)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </details>
+            )}
           </div>
         )}
 
         {/* Prospects */}
         {prospects.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>Prospects / POV Decks in Progress</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {prospects.map((pr, i) => (
-                <span key={i} style={{ fontSize: 13, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 5, padding: '5px 14px', fontWeight: 500 }}>{pr}</span>
-              ))}
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
+              Prospects / Pipeline <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({prospects.length})</span>
             </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                  <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8, width: 32 }}>#</th>
+                  <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8 }}>Company / Contact</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prospects.map((pr, pi) => (
+                  <tr key={pi} style={{ borderBottom: '1px solid #f8fafc' }}>
+                    <td style={{ fontSize: 12, color: '#94a3b8', padding: '9px 8px 9px 0', verticalAlign: 'top' }}>{pi + 1}</td>
+                    <td style={{ fontSize: 13.5, color: '#0f2d3d', fontWeight: 500, padding: '9px 0', verticalAlign: 'top' }}>{pr}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

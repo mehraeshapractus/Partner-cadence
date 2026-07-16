@@ -20,7 +20,10 @@ interface Popover {
 export default function WeeklyMatrix({ weekly, liveData = {} }: { weekly: WeekRow[], liveData?: Record<string, LiveData> }) {
   const navigate = useNavigate()
   const [popover, setPopover] = useState<Popover | null>(null)
+  const [sbuFilter, setSbuFilter] = useState<SBU | 'All'>('All')
   const popRef = useRef<HTMLDivElement>(null)
+
+  const visibleSBUs = sbuFilter === 'All' ? SBUS : SBUS.filter(s => s === sbuFilter)
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -47,13 +50,31 @@ export default function WeeklyMatrix({ weekly, liveData = {} }: { weekly: WeekRo
 
   return (
     <>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+        {(['All', ...SBUS] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => setSbuFilter(s as SBU | 'All')}
+            style={{
+              fontSize: 11, fontWeight: 600, padding: '3px 12px', borderRadius: 20,
+              border: '1px solid',
+              borderColor: sbuFilter === s ? 'var(--hdr)' : '#e2e8f0',
+              background: sbuFilter === s ? 'var(--hdr)' : '#fff',
+              color: sbuFilter === s ? '#fff' : '#64748b',
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
       <div className="matrix-scroll">
         <table className="matrix">
           <thead>
             <tr>
               <th style={{ width: 200, textAlign: 'left', paddingLeft: 16 }}>Week</th>
               <th style={{ width: 100, textAlign: 'left' }}>Type</th>
-              {SBUS.map(s => <th key={s}>{s}</th>)}
+              {visibleSBUs.map(s => <th key={s}>{s}</th>)}
               <th style={{ background: 'var(--hdr2)' }}>Week total</th>
             </tr>
           </thead>
@@ -64,7 +85,7 @@ export default function WeeklyMatrix({ weekly, liveData = {} }: { weekly: WeekRo
               return (
                 <>
                   <tr key={w.week + '-hdr'} className="week-hdr">
-                    <td colSpan={SBUS.length + 3} className={w.current ? 'current' : ''}>
+                    <td colSpan={visibleSBUs.length + 3} className={w.current ? 'current' : ''}>
                       {w.week}{w.current ? ' · CURRENT WEEK' : ''}
                       {w.note && <span style={{ fontSize: 10, fontWeight: 400, opacity: .85, marginLeft: 8 }}>· {w.note}</span>}
                     </td>
@@ -75,7 +96,7 @@ export default function WeeklyMatrix({ weekly, liveData = {} }: { weekly: WeekRo
                       <tr key={w.week + t}>
                         <td />
                         <td className="type-cell">{t}</td>
-                        {SBUS.map(s => {
+                        {visibleSBUs.map(s => {
                           const n     = w.cells[t][s]
                           const prior = prev ? prev.cells[t][s] : null
                           const hasNames = (w.cell_partners?.[t]?.[s] ?? []).length > 0
@@ -106,7 +127,7 @@ export default function WeeklyMatrix({ weekly, liveData = {} }: { weekly: WeekRo
                   })}
                   <tr key={w.week + '-total'} className="row-total">
                     <td /><td className="type-cell">Total</td>
-                    {SBUS.map(s => (
+                    {visibleSBUs.map(s => (
                       <td key={s}>{TYPES.reduce((a, t) => a + w.cells[t][s], 0)}</td>
                     ))}
                     <td className="week-total">{weekTot}</td>
