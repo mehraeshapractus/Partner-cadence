@@ -40,6 +40,18 @@ def _save_manual():
     except Exception:
         pass
 
+# Manual report URLs — keyed by partner name; never overrides a synced report_url
+REPORTS_FILE: Path = Path(__file__).parent / "manual_reports.json"
+_reports: Dict[str, str] = {}
+
+def _load_reports():
+    global _reports
+    try:
+        if REPORTS_FILE.exists():
+            _reports = json.loads(REPORTS_FILE.read_text())
+    except Exception:
+        _reports = {}
+
 # Action states — persisted to file
 STATES_FILE: Path = Path(__file__).parent / "action_states.json"
 _states: Dict[str, Dict[str, str]] = {}
@@ -72,6 +84,7 @@ async def lifespan(app: FastAPI):
     _load_manual()
     _load_prospects()
     _load_states()
+    _load_reports()
     asyncio.create_task(do_sync())   # warm sync on startup
     yield
 
@@ -93,9 +106,15 @@ async def get_partners():
         {**p, "prospects": list(p.get("prospects", [])) + _prospects.get(p["name"], [])}
         for p in PARTNERS
     ]
+    # Merge manual report URLs as fallback (sync data takes precedence)
+    live = {k: dict(v) for k, v in _cache["live_data"].items()}
+    for pname, rurl in _reports.items():
+        entry = live.setdefault(pname, {})
+        if not entry.get("report_url"):
+            entry["report_url"] = rurl
     return {
         "partners":   partners,
-        "live_data":  _cache["live_data"],
+        "live_data":  live,
         "synced_at":  _cache["synced_at"],
         "errors":     _cache["errors"],
     }

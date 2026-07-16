@@ -214,11 +214,11 @@ export default function PartnerViewPage() {
                           <button
                             onClick={() => toggleDone(a)}
                             title="Mark as done"
+                            className="action-radio-open"
                             style={{
-                              width: 20, height: 20, borderRadius: '50%',
-                              border: '2px solid #94a3b8', background: 'transparent',
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              padding: 0, flexShrink: 0,
+                              width: 22, height: 22, borderRadius: '50%',
+                              border: '2.5px solid #64748b', background: '#fff',
+                              cursor: 'pointer', padding: 0, flexShrink: 0, display: 'block',
                             }}
                           />
                         </td>
@@ -318,6 +318,13 @@ export default function PartnerViewPage() {
         @media print {
           body { background: #fff !important; }
           button { display: none !important; }
+        }
+        .action-radio-open {
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .action-radio-open:hover {
+          border-color: #14b8a6 !important;
+          box-shadow: 0 0 0 3px rgba(20,184,166,0.18);
         }
       `}</style>
     </div>
