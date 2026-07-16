@@ -196,7 +196,7 @@ export default function PartnerViewPage() {
         {allActions.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
-              Next Steps <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
+              Open Actions <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
             </div>
             {openActs.length > 0 ? (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -207,7 +207,7 @@ export default function PartnerViewPage() {
                         <td style={{ width: 32, paddingTop: 10, paddingBottom: 10, verticalAlign: 'top' }}>
                           <svg
                             onClick={() => toggleDone(a)}
-                            title="Mark as done"
+                            aria-label="Mark as done"
                             className="action-radio-open"
                             width="22" height="22" viewBox="0 0 22 22"
                             style={{ cursor: 'pointer', display: 'block', flexShrink: 0 }}
@@ -239,7 +239,7 @@ export default function PartnerViewPage() {
                         <td style={{ width: 32, paddingTop: 8, paddingBottom: 8, verticalAlign: 'top' }}>
                           <svg
                             onClick={() => toggleDone(a)}
-                            title="Reopen action"
+                            aria-label="Reopen action"
                             width="22" height="22" viewBox="0 0 22 22"
                             style={{ cursor: 'pointer', display: 'block' }}
                           >
