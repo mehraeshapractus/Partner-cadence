@@ -187,13 +187,24 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
   )
 }
 
+const PROSPECT_SHOW = 4
+
 export default function PartnerTable({ partners, liveData, ticks, onTick, manualActions, onAddAction, onDeleteAction, manualProspects, onAddProspect, onDeleteProspect }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const [addingFor, setAddingFor] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [addingProspectFor, setAddingProspectFor] = useState<string | null>(null)
   const [prospectDraft, setProspectDraft] = useState('')
+  const [expandedProspects, setExpandedProspects] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
+
+  function toggleProspects(name: string) {
+    setExpandedProspects(prev => {
+      const next = new Set(prev)
+      next.has(name) ? next.delete(name) : next.add(name)
+      return next
+    })
+  }
 
   const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Meeting Notes & Key Updates', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
 
@@ -347,41 +358,56 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                 </td>
 
                 <td style={{ minWidth: 160 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {(p.prospects || []).map((pr, pi) => {
-                      const isManual = pi >= (p.prospects || []).length - (manualProspects[p.name] || []).length
-                      const manualIdx = pi - ((p.prospects || []).length - (manualProspects[p.name] || []).length)
-                      return (
-                        <span key={pi} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ fontSize: 10.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 7px', whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={pr}>{pr}</span>
-                          {isManual && (
-                            <button onClick={() => onDeleteProspect(p.name, manualIdx)} title="Remove"
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '0 1px', lineHeight: 1, flexShrink: 0 }}>&times;</button>
-                          )}
-                        </span>
-                      )
-                    })}
-                    {addingProspectFor === p.name ? (
-                      <div style={{ display: 'flex', gap: 3, marginTop: 2 }}>
-                        <input autoFocus value={prospectDraft} onChange={e => setProspectDraft(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) }
-                            if (e.key === 'Escape') { setAddingProspectFor(null); setProspectDraft('') }
-                          }}
-                          placeholder="Prospect name..."
-                          style={{ flex: 1, fontSize: 10.5, padding: '2px 5px', border: '1px solid #fde68a', borderRadius: 3, outline: 'none', minWidth: 0 }} />
-                        <button onClick={() => { if (prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) } }}
-                          style={{ fontSize: 10, padding: '2px 6px', background: '#854d0e', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}>+</button>
-                        <button onClick={() => { setAddingProspectFor(null); setProspectDraft('') }}
-                          style={{ fontSize: 10, padding: '2px 5px', background: 'none', border: '1px solid var(--border)', borderRadius: 3, cursor: 'pointer' }}>✕</button>
+                  {(() => {
+                    const allProspects = p.prospects || []
+                    const manualCount  = (manualProspects[p.name] || []).length
+                    const isExpanded   = expandedProspects.has(p.name)
+                    const visible      = isExpanded ? allProspects : allProspects.slice(0, PROSPECT_SHOW)
+                    const hidden       = allProspects.length - PROSPECT_SHOW
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {visible.map((pr, pi) => {
+                          const isManual = pi >= allProspects.length - manualCount
+                          const manualIdx = pi - (allProspects.length - manualCount)
+                          return (
+                            <span key={pi} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <span style={{ fontSize: 10.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 7px', whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={pr}>{pr}</span>
+                              {isManual && (
+                                <button onClick={() => onDeleteProspect(p.name, manualIdx)} title="Remove"
+                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '0 1px', lineHeight: 1, flexShrink: 0 }}>&times;</button>
+                              )}
+                            </span>
+                          )
+                        })}
+                        {allProspects.length > PROSPECT_SHOW && (
+                          <button onClick={() => toggleProspects(p.name)}
+                            style={{ fontSize: 10, color: '#92400e', background: isExpanded ? '#fef3c7' : 'none', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 8px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 1 }}>
+                            {isExpanded ? `▴ show less` : `▾ ${hidden} more`}
+                          </button>
+                        )}
+                        {addingProspectFor === p.name ? (
+                          <div style={{ display: 'flex', gap: 3, marginTop: 2 }}>
+                            <input autoFocus value={prospectDraft} onChange={e => setProspectDraft(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) }
+                                if (e.key === 'Escape') { setAddingProspectFor(null); setProspectDraft('') }
+                              }}
+                              placeholder="Prospect name..."
+                              style={{ flex: 1, fontSize: 10.5, padding: '2px 5px', border: '1px solid #fde68a', borderRadius: 3, outline: 'none', minWidth: 0 }} />
+                            <button onClick={() => { if (prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) } }}
+                              style={{ fontSize: 10, padding: '2px 6px', background: '#854d0e', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}>+</button>
+                            <button onClick={() => { setAddingProspectFor(null); setProspectDraft('') }}
+                              style={{ fontSize: 10, padding: '2px 5px', background: 'none', border: '1px solid var(--border)', borderRadius: 3, cursor: 'pointer' }}>✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setAddingProspectFor(p.name); setProspectDraft('') }}
+                            style={{ fontSize: 10, color: '#92400e', background: 'none', border: '1px dashed #fde68a', borderRadius: 3, padding: '2px 7px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                            + Add
+                          </button>
+                        )}
                       </div>
-                    ) : (
-                      <button onClick={() => { setAddingProspectFor(p.name); setProspectDraft('') }}
-                        style={{ fontSize: 10, color: '#92400e', background: 'none', border: '1px dashed #fde68a', borderRadius: 3, padding: '2px 7px', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                        + Add
-                      </button>
-                    )}
-                  </div>
+                    )
+                  })()}
                 </td>
                 <td className="placeholder" style={{ fontStyle: 'italic', fontSize: 11 }}>(inferred)</td>
                 <td><span className="spoc-pill">{p.spoc || '—'}</span></td>
