@@ -99,11 +99,6 @@ export default function PartnerViewPage() {
   const openActs   = allActions.filter(a => actionStates[aKey(a)] !== 'done')
   const closedActs = allActions.filter(a => actionStates[aKey(a)] === 'done')
 
-  function srcBadge(a: string, i: number) {
-    if (i < hcAct.length) return null
-    if (i < hcAct.length + lvAct.length) return <span style={{ marginLeft: 6, fontSize: 10, background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 3, padding: '1px 5px' }}>live</span>
-    return <span style={{ marginLeft: 6, fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '1px 5px' }}>manual</span>
-  }
   const reportUrl  = liveData?.report_url || ''
   const today      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -201,29 +196,27 @@ export default function PartnerViewPage() {
         {allActions.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
-              Open Actions <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
+              Next Steps <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
             </div>
             {openActs.length > 0 ? (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <tbody>
                   {openActs.map((a) => {
-                    const globalIdx = allActions.indexOf(a)
                     return (
                       <tr key={a} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ width: 32, paddingTop: 10, paddingBottom: 10, verticalAlign: 'top' }}>
-                          <button
+                          <svg
                             onClick={() => toggleDone(a)}
                             title="Mark as done"
                             className="action-radio-open"
-                            style={{
-                              width: 22, height: 22, borderRadius: '50%',
-                              border: '2.5px solid #64748b', background: '#fff',
-                              cursor: 'pointer', padding: 0, flexShrink: 0, display: 'block',
-                            }}
-                          />
+                            width="22" height="22" viewBox="0 0 22 22"
+                            style={{ cursor: 'pointer', display: 'block', flexShrink: 0 }}
+                          >
+                            <circle cx="11" cy="11" r="8.5" fill="white" stroke="#475569" strokeWidth="2.5"/>
+                          </svg>
                         </td>
                         <td style={{ fontSize: 13.5, color: '#1e293b', lineHeight: 1.65, padding: '10px 8px 10px 0', verticalAlign: 'top' }}>
-                          {a}{srcBadge(a, globalIdx)}
+                          {a}
                         </td>
                       </tr>
                     )
@@ -241,28 +234,24 @@ export default function PartnerViewPage() {
                 </summary>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, opacity: 0.65 }}>
                   <tbody>
-                    {closedActs.map((a) => {
-                      const globalIdx = allActions.indexOf(a)
-                      return (
-                        <tr key={a} style={{ borderBottom: '1px solid #f8fafc' }}>
-                          <td style={{ width: 32, paddingTop: 8, paddingBottom: 8, verticalAlign: 'top' }}>
-                            <button
-                              onClick={() => toggleDone(a)}
-                              title="Reopen action"
-                              style={{
-                                width: 20, height: 20, borderRadius: '50%',
-                                border: '2px solid #14b8a6', background: '#14b8a6',
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 0, color: '#fff', fontSize: 12, fontWeight: 700,
-                              }}
-                            >✓</button>
-                          </td>
-                          <td style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6, padding: '8px 8px 8px 0', textDecoration: 'line-through', verticalAlign: 'top' }}>
-                            {a}{srcBadge(a, globalIdx)}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {closedActs.map((a) => (
+                      <tr key={a} style={{ borderBottom: '1px solid #f8fafc' }}>
+                        <td style={{ width: 32, paddingTop: 8, paddingBottom: 8, verticalAlign: 'top' }}>
+                          <svg
+                            onClick={() => toggleDone(a)}
+                            title="Reopen action"
+                            width="22" height="22" viewBox="0 0 22 22"
+                            style={{ cursor: 'pointer', display: 'block' }}
+                          >
+                            <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
+                            <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
+                          </svg>
+                        </td>
+                        <td style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6, padding: '8px 8px 8px 0', textDecoration: 'line-through', verticalAlign: 'top' }}>
+                          {a}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </details>
@@ -319,13 +308,9 @@ export default function PartnerViewPage() {
           body { background: #fff !important; }
           button { display: none !important; }
         }
-        .action-radio-open {
-          transition: border-color 0.15s, box-shadow 0.15s;
-        }
-        .action-radio-open:hover {
-          border-color: #14b8a6 !important;
-          box-shadow: 0 0 0 3px rgba(20,184,166,0.18);
-        }
+        .action-radio-open circle { transition: stroke 0.15s; }
+        .action-radio-open:hover circle { stroke: #14b8a6; }
+        .action-radio-open:hover { filter: drop-shadow(0 0 3px rgba(20,184,166,0.35)); }
       `}</style>
     </div>
   )
