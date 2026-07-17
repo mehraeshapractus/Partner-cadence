@@ -301,7 +301,7 @@ export default function TrackerPage() {
       {weekly.length > 0 && (
         <div className="matrix-wrap">
           <h2>Weekly partner-calls matrix &mdash; Week-over-week (Apr 20 &rarr; today)</h2>
-          <WeeklyMatrix weekly={weekly} liveData={liveData} />
+          <WeeklyMatrix weekly={weekly} liveData={liveData} partners={partners} />
         </div>
       )}
 
