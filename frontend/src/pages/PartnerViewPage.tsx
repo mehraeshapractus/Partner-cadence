@@ -125,17 +125,21 @@ export default function PartnerViewPage() {
   const closedActs = allActions.filter(a => actionStates[aKey(a)] === 'done')
 
   function classifyAction(text: string): 'practus' | 'partner' {
-    const lower = text.toLowerCase()
-    if (lower.includes('practus')) return 'practus'
-    // Extract meaningful name tokens from the SPOC string (e.g. "SVenkat" → "venkat")
-    const tokens = (partner?.spoc || '')
+    const lower = text.toLowerCase().trim()
+    // Use the FIRST WORD only — that's who is doing the action (the subject)
+    const firstWord = lower.split(/\s+/)[0]
+    // "Practus team will..." or "Practus will..."
+    if (firstWord === 'practus') return 'practus'
+    // Extract name tokens from the SPOC (e.g. "SVenkat" → "venkat", "Ravikanth Rao" → ["ravikanth","rao"])
+    const spocTokens = (partner?.spoc || '')
       .replace(/[^a-zA-Z]/g, ' ')
       .split(/\s+/)
       .flatMap(t => (t.match(/[A-Z][a-z]+|[A-Z]+(?=[A-Z])|[a-z]+/g) || [t]))
       .filter(t => t.length >= 4)
       .map(t => t.toLowerCase())
-    const firstWords = lower.split(/\s+/).slice(0, 3).join(' ')
-    return tokens.some(t => firstWords.includes(t)) ? 'practus' : 'partner'
+    // Subject matches a SPOC name component → Practus action
+    if (spocTokens.some(t => firstWord === t || firstWord.startsWith(t) || t.startsWith(firstWord))) return 'practus'
+    return 'partner'
   }
 
   const reportUrl  = liveData?.report_url || ''
