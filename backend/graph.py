@@ -87,13 +87,20 @@ def _get_folders(m: dict) -> list:
 
 
 def _is_partner_meeting(m: dict) -> bool:
-    """Match by folder/collection name or by meeting title vs known partners."""
+    """Match only partner cadence/BD/alignment calls — exclude prospect/client meetings."""
     folder_strs = [str(f).lower() for f in _get_folders(m)]
-    PARTNER_KEYWORDS = ("partner", "alignment", "cadence", "planning", "bd", "intro")
-    if any(kw in f for f in folder_strs for kw in PARTNER_KEYWORDS):
+    FOLDER_KEYWORDS = ("partner", "alignment", "cadence", "planning", "bd ")
+    if any(kw in f for f in folder_strs for kw in FOLDER_KEYWORDS):
         return True
-    # Also match if meeting title mentions a known partner
-    return _match_partner_by_title(m.get("title", "")) is not None
+    # Title must explicitly signal a partnership meeting — NOT just mention a partner's name
+    # (that would match prospect/client meetings where a partner happens to be present)
+    title = m.get("title", "").lower()
+    TITLE_KEYWORDS = (
+        "partner", "cadence", "alignment", "bi-weekly", "biweekly",
+        "check-in", "catch-up", "partnership", "planning call",
+        "intro call", "intro meeting", "collaboration", "bd call", "bd meeting",
+    )
+    return any(kw in title for kw in TITLE_KEYWORDS)
 
 
 async def fetch_readai_meetings(state: SyncState) -> SyncState:
@@ -128,11 +135,8 @@ async def fetch_readai_meetings(state: SyncState) -> SyncState:
         state["errors"].append(f"Read.ai list_meetings error: {e}")
         return state
 
-    # No time restriction — look at all meetings; filter to partner calls only
+    # Filter to partner/cadence calls only — no fallback to all meetings
     cadence = [m for m in all_meetings if _is_partner_meeting(m)]
-    # Fallback: if folder filter returns nothing, accept all meetings and rely on title matching in details
-    if not cadence:
-        cadence = all_meetings
     state["meetings"] = cadence
     return state
 
