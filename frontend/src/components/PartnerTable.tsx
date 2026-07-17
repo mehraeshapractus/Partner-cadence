@@ -7,7 +7,7 @@ interface Props {
   partners: Partner[]
   liveData: Record<string, LiveData>
   ticks: Record<string, { at: string }>
-  onTick: (key: string, checked: boolean) => void
+  onTick: (key: string, checked: boolean, partnerName: string, actionText: string) => void
   manualActions: Record<string, string[]>
   onAddAction: (partnerName: string, text: string) => void
   onDeleteAction: (partnerName: string, index: number) => void
@@ -30,7 +30,7 @@ interface DetailProps {
   p: Partner
   ld: LiveData
   ticks: Record<string, { at: string }>
-  onTick: (key: string, checked: boolean) => void
+  onTick: (key: string, checked: boolean, partnerName: string, actionText: string) => void
   manualActs: string[]
   onAddAction: (text: string) => void
   onDeleteAction: (index: number) => void
@@ -126,7 +126,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
               const k = `${p.name}::${ai}`, done = !!ticks[k]
               return (
                 <li key={k} className={done ? 'checked' : ''} style={{ marginBottom: 6 }}>
-                  <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked)} />
+                  <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} />
                   <span className="action-txt" style={{ fontSize: 12 }}>{a}</span>
                   {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                 </li>
@@ -136,7 +136,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
               const k = `live::${p.name}::${fnvHash(a.trim())}`, done = !!ticks[k]
               return (
                 <li key={k} className={done ? 'checked' : ''} style={{ marginBottom: 6 }}>
-                  <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked)} />
+                  <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} />
                   <span className="action-txt" style={{ fontSize: 12 }}>{a} <span className="live-badge">live</span></span>
                   {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                 </li>
@@ -146,7 +146,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
               const k = `manual::${p.name}::${fnvHash(a.trim())}`, done = !!ticks[k]
               return (
                 <li key={k} className={done ? 'checked' : ''} style={{ marginBottom: 6, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
-                  <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked)} style={{ marginTop: 2 }} />
+                  <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} style={{ marginTop: 2 }} />
                   <span className="action-txt" style={{ fontSize: 12, flex: 1 }}>{a} <span className="live-badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>manual</span></span>
                   {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                   <button onClick={() => onDeleteAction(mi)} title="Delete action"
@@ -301,7 +301,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                         const k = `${p.name}::${ai}`, done = !!ticks[k]
                         return (
                           <li key={k} className={done ? 'checked' : ''}>
-                            <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked)} />
+                            <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} />
                             <span className="action-txt">{a}</span>
                             {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                           </li>
@@ -311,7 +311,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                         const k = `live::${p.name}::${fnvHash(a.trim())}`, done = !!ticks[k]
                         return (
                           <li key={k} className={done ? 'checked' : ''}>
-                            <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked)} />
+                            <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} />
                             <span className="action-txt">{a} <span className="live-badge">live</span></span>
                             {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                           </li>
@@ -321,7 +321,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                         const k = `manual::${p.name}::${fnvHash(a.trim())}`, done = !!ticks[k]
                         return (
                           <li key={k} className={done ? 'checked' : ''} style={{ display: 'flex', alignItems: 'flex-start', gap: 3 }}>
-                            <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked)} style={{ marginTop: 2, flexShrink: 0 }} />
+                            <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} style={{ marginTop: 2, flexShrink: 0 }} />
                             <span className="action-txt" style={{ flex: 1 }}>{a} <span className="live-badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>manual</span></span>
                             {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                             <button onClick={() => onDeleteAction(p.name, mi)} title="Delete"

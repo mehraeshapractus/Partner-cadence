@@ -194,7 +194,7 @@ export default function TrackerPage() {
     return () => window.removeEventListener("practus:export", handleExport)
   }, [partners, liveData, ticks])
 
-  function onTick(key: string, checked: boolean) {
+  function onTick(key: string, checked: boolean, partnerName: string, actionText: string) {
     setTicks(prev => {
       const next = { ...prev }
       if (checked) next[key] = { at: new Date().toISOString() }
@@ -202,6 +202,13 @@ export default function TrackerPage() {
       saveTicks(next)
       return next
     })
+    // Sync done/open state to backend so Partner View reflects the same
+    const aKey = actionText.trim().slice(0, 60)
+    fetch('/api/action-states', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner: partnerName, key: aKey, state: checked ? 'done' : 'open' }),
+    }).catch(() => {})
   }
 
   const spocs = [...new Set(partners.map(p => p.spoc).filter(Boolean))].sort()
