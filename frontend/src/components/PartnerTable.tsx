@@ -272,10 +272,36 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                 <td style={{ fontSize: 10.5 }}>{email || <span className="placeholder">—</span>}</td>
                 <td><span className={`type-pill ${typeClass(p.type)}`}>{p.type}</span></td>
                 <td><span className={`stage-pill ${stagePillClass(p.stage)}`}>{p.stage}</span></td>
-                <td style={{ fontSize: 10.5 }}>{lm || <span className="placeholder">—</span>}</td>
-                <td style={{ maxWidth: 280, fontSize: 11 }}>
-                  {notesText || <span className="placeholder">&mdash;</span>}
-                  {reportUrl && (
+                <td style={{ fontSize: 10.5, minWidth: 110 }}>
+                  {(() => {
+                    const hist = ld.meetings_history
+                    if (hist && hist.length > 0) {
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {hist.map((m, mi) => (
+                            <div key={mi} style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: 10, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>{m.date}</span>
+                              {m.url ? (
+                                <a href={m.url} target="_blank" rel="noopener noreferrer" title={m.title}
+                                  style={{ fontSize: 9.5, color: '#0f766e', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '1px 5px', borderRadius: 3, textDecoration: 'none', flexShrink: 0 }}>
+                                  ↗
+                                </a>
+                              ) : (
+                                <span style={{ fontSize: 9, color: '#94a3b8' }} title={m.title}>·</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }
+                    return lm ? <span style={{ fontSize: 10.5 }}>{lm}</span> : <span className="placeholder">—</span>
+                  })()}
+                </td>
+                <td style={{ maxWidth: 260, fontSize: 11 }}>
+                  {notesText ? (
+                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45, maxHeight: 120, overflow: 'hidden' }}>{notesText}</div>
+                  ) : <span className="placeholder">&mdash;</span>}
+                  {reportUrl && !ld.meetings_history?.length && (
                     <div style={{ marginTop: 4 }}>
                       <a href={reportUrl} target="_blank" rel="noopener noreferrer"
                         style={{ fontSize: 10, color: 'var(--teal-d)', textDecoration: 'none', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap' }}>

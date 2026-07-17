@@ -242,6 +242,29 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
             or _extract_items(summary_block.get("key_decisions"))
         )
 
+        # Extract meeting overview/summary text for notes column
+        overview = ""
+        for _fld in ("overview", "notes", "summary_text", "description"):
+            _v = summary_block.get(_fld) or detail.get(_fld)
+            if not _v:
+                continue
+            if isinstance(_v, list):
+                overview = " ".join(
+                    (x.get("text") or x.get("content") or str(x)).strip()
+                    for x in _v if x
+                ).strip()
+            else:
+                overview = str(_v).strip()
+            if overview:
+                break
+        if not overview:
+            pts = summary_block.get("key_points") or []
+            if pts and isinstance(pts, list):
+                overview = "; ".join(
+                    (x.get("text") or x.get("content") or str(x)).strip()
+                    for x in pts[:3] if x
+                )
+
         # Match by email, participant name, then meeting title
         matched_partners: set = set()
         for participant in participants:
@@ -266,8 +289,10 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
 
             key = matched["name"]
             if key not in live:
-                live[key] = {"notes": "", "actions": [], "last_meeting": "", "report_url": ""}
+                live[key] = {"notes": "", "actions": [], "last_meeting": "", "report_url": "", "meetings_history": []}
             ld = live[key]
+            if "meetings_history" not in ld:
+                ld["meetings_history"] = []
 
             # Keep the most recent meeting date; attach that meeting's report URL
             if mtg_date and (not ld["last_meeting"] or mtg_date > ld["last_meeting"]):
@@ -275,10 +300,16 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
                 if report_url:
                     ld["report_url"] = report_url
 
-            # Accumulate meeting title as a note entry
-            note_line = f"Meeting: {title} ({mtg_date})"
-            if note_line not in ld["notes"]:
-                ld["notes"] = note_line + ("\n\n" + ld["notes"] if ld["notes"] else "")
+            # Accumulate meeting history (date + report link); deduplicate by date
+            existing_hist_dates = {m["date"] for m in ld["meetings_history"]}
+            if mtg_date and mtg_date not in existing_hist_dates:
+                ld["meetings_history"].append({"date": mtg_date, "url": report_url, "title": title})
+
+            # Richer note: [date] title + overview text
+            note_header = f"[{mtg_date}] {title}"
+            if note_header not in ld["notes"]:
+                note_entry = note_header + (f"\n{overview}" if overview else "")
+                ld["notes"] = note_entry + ("\n\n" + ld["notes"] if ld["notes"] else "")
 
             # Accumulate action items across all meetings (deduplicate case-insensitively)
             for action in action_items:
@@ -292,6 +323,12 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
                 week_counts[typ][sbu] += 1
                 if partner_name not in week_partners[typ][sbu]:
                     week_partners[typ][sbu].append(partner_name)
+
+    # Sort each partner's meeting history newest-first, keep last 6
+    for _k in live:
+        hist = live[_k].get("meetings_history", [])
+        hist.sort(key=lambda m: m.get("date", ""), reverse=True)
+        live[_k]["meetings_history"] = hist[:6]
 
     state["live_data"]      = live
     state["week_counts"]    = week_counts
@@ -403,15 +440,21 @@ async def fetch_outlook_calendar(state: SyncState) -> SyncState:
 
             key = p["name"]
             if key not in live:
-                live[key] = {"notes": "", "actions": [], "last_meeting": "", "report_url": ""}
+                live[key] = {"notes": "", "actions": [], "last_meeting": "", "report_url": "", "meetings_history": []}
             ld = live[key]
+            if "meetings_history" not in ld:
+                ld["meetings_history"] = []
 
             # Update last_meeting only if this Outlook event is more recent
             if mtg_date and (not ld["last_meeting"] or mtg_date > ld["last_meeting"]):
                 ld["last_meeting"] = mtg_date
 
-            # Add as a note (prefixed so it's distinguishable from Read.ai notes)
-            note_line = f"Outlook meeting: {subject} ({mtg_date})"
+            # Accumulate meeting history
+            if mtg_date and mtg_date not in {m["date"] for m in ld["meetings_history"]}:
+                ld["meetings_history"].append({"date": mtg_date, "url": "", "title": subject})
+
+            # Add as a note
+            note_line = f"[{mtg_date}] {subject}"
             if note_line not in ld["notes"]:
                 ld["notes"] = note_line + ("\n\n" + ld["notes"] if ld["notes"] else "")
 
@@ -428,6 +471,12 @@ async def fetch_outlook_calendar(state: SyncState) -> SyncState:
                     if key not in week_partners[typ][sbu]:
                         week_partners[typ][sbu].append(key)
                     counted_partners_this_event.add(key)
+
+    # Sort each partner's meeting history newest-first, keep last 6
+    for _k in live:
+        hist = live[_k].get("meetings_history", [])
+        hist.sort(key=lambda m: m.get("date", ""), reverse=True)
+        live[_k]["meetings_history"] = hist[:6]
 
     state["live_data"]   = live
     state["week_counts"] = week_counts

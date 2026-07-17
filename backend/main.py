@@ -108,10 +108,17 @@ async def get_partners():
     ]
     # Merge manual report URLs as fallback (sync data takes precedence)
     live = {k: dict(v) for k, v in _cache["live_data"].items()}
+    partner_map = {p["name"]: p for p in PARTNERS}
     for pname, rurl in _reports.items():
         entry = live.setdefault(pname, {})
         if not entry.get("report_url"):
             entry["report_url"] = rurl
+        # If no meetings_history yet, build one from the partner's last_meeting date
+        if not entry.get("meetings_history"):
+            pdata = partner_map.get(pname, {})
+            lm_date = entry.get("last_meeting") or pdata.get("last_meeting", "")
+            if lm_date:
+                entry["meetings_history"] = [{"date": lm_date, "url": rurl, "title": "Partner meeting"}]
     return {
         "partners":   partners,
         "live_data":  live,

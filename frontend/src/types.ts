@@ -20,6 +20,7 @@ export interface LiveData {
   actions: string[]
   last_meeting: string
   report_url?: string
+  meetings_history?: Array<{ date: string; url: string; title: string }>
 }
 
 export interface WeeklyCell {
