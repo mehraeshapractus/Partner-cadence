@@ -27,11 +27,12 @@ GRAPH_BASE  = "https://graph.microsoft.com/v1.0"
 # ── State ────────────────────────────────────────────────────────────────────
 
 class SyncState(TypedDict):
-    meetings: List[Dict]        # raw Partner Cadence meetings from Read.ai
-    live_data: Dict[str, Dict]  # keyed by partner name → {notes, actions, last_meeting}
-    weekly: List[Dict]          # updated WEEKLY rows
-    week_counts: Dict[str, Dict[str, int]]            # type → sbu → count (current week)
-    week_partners: Dict[str, Dict[str, List[str]]]    # type → sbu → [partner names]
+    meetings: List[Dict]           # cadence meetings (filtered) — details fetched for these
+    all_meetings_raw: List[Dict]   # ALL Read.ai meetings — used for meetings_history only
+    live_data: Dict[str, Dict]     # keyed by partner name → {notes, actions, last_meeting, …}
+    weekly: List[Dict]             # updated WEEKLY rows
+    week_counts: Dict[str, Dict[str, int]]
+    week_partners: Dict[str, Dict[str, List[str]]]
     week_start_iso: str
     errors: List[str]
     synced_at: str
@@ -135,9 +136,9 @@ async def fetch_readai_meetings(state: SyncState) -> SyncState:
         state["errors"].append(f"Read.ai list_meetings error: {e}")
         return state
 
-    # Filter to partner/cadence calls only — no fallback to all meetings
-    cadence = [m for m in all_meetings if _is_partner_meeting(m)]
-    state["meetings"] = cadence
+    state["all_meetings_raw"] = all_meetings
+    # Cadence-filtered meetings get full detail fetching (action items, notes, weekly counts)
+    state["meetings"] = [m for m in all_meetings if _is_partner_meeting(m)]
     return state
 
 
@@ -323,6 +324,40 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
                 week_counts[typ][sbu] += 1
                 if partner_name not in week_partners[typ][sbu]:
                     week_partners[typ][sbu].append(partner_name)
+
+    # Second pass: email-match ALL Read.ai meetings for meetings_history only.
+    # No detail API calls here — we only use list-level data (title, date, report_url).
+    # This fills history for partners who have meetings outside cadence keyword filters.
+    for meeting in state.get("all_meetings_raw", []):
+        participants = meeting.get("participants") or []
+        start_ms     = meeting.get("start_time_ms", 0)
+        mtg_dt       = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc) if start_ms else None
+        mtg_date     = mtg_dt.strftime("%Y-%m-%d") if mtg_dt else ""
+        report_url   = meeting.get("report_url", "")
+        raw_title    = meeting.get("title", "") or ""
+
+        # Email-only matching (precise — avoids pulling in prospect meetings by name)
+        email_matched: set = set()
+        for participant in participants:
+            p_email = (participant.get("email", "") or "").lower().strip()
+            pm = _match_partner(p_email)
+            if pm:
+                email_matched.add(pm["name"])
+
+        for partner_name in email_matched:
+            if partner_name not in live:
+                continue  # only enrich already-matched partners
+            ld = live[partner_name]
+            if "meetings_history" not in ld:
+                ld["meetings_history"] = []
+            existing_dates = {m["date"] for m in ld["meetings_history"]}
+            if mtg_date and mtg_date not in existing_dates:
+                ld["meetings_history"].append({"date": mtg_date, "url": report_url, "title": raw_title})
+            # Keep last_meeting up to date
+            if mtg_date and (not ld.get("last_meeting") or mtg_date > ld["last_meeting"]):
+                ld["last_meeting"] = mtg_date
+                if report_url and not ld.get("report_url"):
+                    ld["report_url"] = report_url
 
     # Sort each partner's meeting history newest-first, keep last 6
     for _k in live:
@@ -514,13 +549,14 @@ async def run_sync() -> Dict[str, Any]:
     _sbus  = ["US", "India", "MEA", "Global", "Unassigned"]
     _types = ["BD Partner", "Partner", "SME"]
     initial: SyncState = {
-        "meetings":       [],
-        "live_data":      {},
-        "weekly":         copy.deepcopy(WEEKLY),
-        "week_counts":    {t: {s: 0  for s in _sbus} for t in _types},
-        "week_partners":  {t: {s: [] for s in _sbus} for t in _types},
-        "week_start_iso": "",
-        "errors":         [],
-        "synced_at":      "",
+        "meetings":          [],
+        "all_meetings_raw":  [],
+        "live_data":         {},
+        "weekly":            copy.deepcopy(WEEKLY),
+        "week_counts":       {t: {s: 0  for s in _sbus} for t in _types},
+        "week_partners":     {t: {s: [] for s in _sbus} for t in _types},
+        "week_start_iso":    "",
+        "errors":            [],
+        "synced_at":         "",
     }
     return await _graph.ainvoke(initial)

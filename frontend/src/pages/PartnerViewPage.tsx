@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Partner, LiveData } from '../types'
+import { fnvHash } from './TrackerPage'
+
+const LS_KEY = 'practus-tracker-ticks-v2'
 
 function parseDate(s: string): Date | null {
   if (!s || s === 'TBD' || s.toLowerCase().includes('recurring')) return null
@@ -42,10 +45,32 @@ export default function PartnerViewPage() {
           x => x.name.toLowerCase() === decodedName.toLowerCase()
         )
         if (!p) { setLoading(false); return }
+
+        const ldData = pd.live_data?.[p.name] || { notes: '', actions: [], last_meeting: '' }
+        const mnActs = (md.manual_actions?.[p.name] || []) as string[]
+        const hcActs = p.actions || []
+        const lvActs = (ldData.actions || []).filter(
+          (la: string) => !hcActs.some((ha: string) => ha.toLowerCase().trim() === la.toLowerCase().trim())
+        )
+
+        // Merge backend action_states with localStorage ticks from the main table
+        const backendStates: Record<string, string> = sd.states || {}
+        const ticks: Record<string, { at: string }> = JSON.parse(localStorage.getItem(LS_KEY) || '{}')
+        const merged = { ...backendStates }
+        hcActs.forEach((a: string, i: number) => {
+          if (ticks[`${p.name}::${i}`]) merged[aKey(a)] = 'done'
+        })
+        lvActs.forEach((a: string) => {
+          if (ticks[`live::${p.name}::${fnvHash(a.trim())}`]) merged[aKey(a)] = 'done'
+        })
+        mnActs.forEach((a: string) => {
+          if (ticks[`manual::${p.name}::${fnvHash(a.trim())}`]) merged[aKey(a)] = 'done'
+        })
+
         setPartner(p)
-        setLiveData(pd.live_data?.[p.name] || null)
-        setManualActions((md.manual_actions?.[p.name] || []) as string[])
-        setActionStates(sd.states || {})
+        setLiveData(ldData)
+        setManualActions(mnActs)
+        setActionStates(merged)
       } catch { } finally { setLoading(false) }
     }
     load()
@@ -165,28 +190,40 @@ export default function PartnerViewPage() {
             </div>
           </div>
 
-          {/* Last meeting */}
-          {lm && (
-            <div style={{ marginTop: 18, padding: '12px 16px', background: '#f0fdfa', borderRadius: 6, border: '1px solid #99f6e4', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5 }}>Last Meeting</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#0f2d3d', marginTop: 2 }}>{lm}</div>
-              </div>
-              {da !== null && (
-                <div style={{ marginLeft: 'auto' }}>
+          {/* Meeting history / last meeting */}
+          {(lm || (liveData?.meetings_history?.length ?? 0) > 0) && (
+            <div style={{ marginTop: 18, padding: '14px 16px', background: '#f0fdfa', borderRadius: 6, border: '1px solid #99f6e4' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Meeting History {liveData?.meetings_history?.length ? `(${liveData.meetings_history.length})` : ''}
+                </div>
+                {da !== null && (
                   <span style={{
                     fontSize: 12, fontWeight: 700, borderRadius: 4, padding: '4px 12px',
                     background: da <= 7 ? '#dcfce7' : da <= 21 ? '#fef3c7' : '#fee2e2',
                     color: da <= 7 ? '#166534' : da <= 21 ? '#92400e' : '#991b1b',
                     border: `1px solid ${da <= 7 ? '#86efac' : da <= 21 ? '#fde68a' : '#fca5a5'}`
                   }}>{da}d ago</span>
+                )}
+              </div>
+              {liveData?.meetings_history && liveData.meetings_history.length > 0 ? (
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {liveData.meetings_history.map((m, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: '#0f2d3d', minWidth: 90 }}>{m.date}</span>
+                      {m.url ? (
+                        <a href={m.url} target="_blank" rel="noopener noreferrer" title={m.title}
+                          style={{ fontSize: 11, color: '#0f766e', background: '#fff', border: '1px solid #14b8a6', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          📋 Read.ai
+                        </a>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}>{m.title || '—'}</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              )}
-              {reportUrl && (
-                <a href={reportUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#0f766e', background: '#fff', border: '1px solid #14b8a6', borderRadius: 5, padding: '5px 12px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                  📋 Read.ai Report
-                </a>
+              ) : (
+                <div style={{ marginTop: 6, fontSize: 14, fontWeight: 600, color: '#0f2d3d' }}>{lm}</div>
               )}
             </div>
           )}
