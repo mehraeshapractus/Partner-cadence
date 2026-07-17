@@ -112,7 +112,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Prospects / POV Decks</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {(p.prospects || []).map((pr, pi) => (
-                <span key={pi} style={{ fontSize: 11.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '3px 10px' }}>{pr}</span>
+                <span key={pi} style={{ fontSize: 11.5, background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 4, padding: '3px 10px' }}>{pr}</span>
               ))}
             </div>
           </div>
@@ -371,7 +371,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                           const manualIdx = pi - (allProspects.length - manualCount)
                           return (
                             <span key={pi} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                              <span style={{ fontSize: 10.5, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 7px', whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={pr}>{pr}</span>
+                              <span style={{ fontSize: 10.5, background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 3, padding: '2px 7px', whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }} title={pr}>{pr}</span>
                               {isManual && (
                                 <button onClick={() => onDeleteProspect(p.name, manualIdx)} title="Remove"
                                   style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, padding: '0 1px', lineHeight: 1, flexShrink: 0 }}>&times;</button>
@@ -381,7 +381,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                         })}
                         {allProspects.length > PROSPECT_SHOW && (
                           <button onClick={() => toggleProspects(p.name)}
-                            style={{ fontSize: 10, color: '#92400e', background: isExpanded ? '#fef3c7' : 'none', border: '1px solid #fde68a', borderRadius: 3, padding: '2px 8px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 1 }}>
+                            style={{ fontSize: 10, color: '#0f766e', background: isExpanded ? '#f0fdfa' : 'none', border: '1px solid #99f6e4', borderRadius: 3, padding: '2px 8px', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 1 }}>
                             {isExpanded ? `▴ show less` : `▾ ${hidden} more`}
                           </button>
                         )}
@@ -393,15 +393,15 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                                 if (e.key === 'Escape') { setAddingProspectFor(null); setProspectDraft('') }
                               }}
                               placeholder="Prospect name..."
-                              style={{ flex: 1, fontSize: 10.5, padding: '2px 5px', border: '1px solid #fde68a', borderRadius: 3, outline: 'none', minWidth: 0 }} />
+                              style={{ flex: 1, fontSize: 10.5, padding: '2px 5px', border: '1px solid #99f6e4', borderRadius: 3, outline: 'none', minWidth: 0 }} />
                             <button onClick={() => { if (prospectDraft.trim()) { onAddProspect(p.name, prospectDraft.trim()); setProspectDraft(''); setAddingProspectFor(null) } }}
-                              style={{ fontSize: 10, padding: '2px 6px', background: '#854d0e', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}>+</button>
+                              style={{ fontSize: 10, padding: '2px 6px', background: '#0f766e', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}>+</button>
                             <button onClick={() => { setAddingProspectFor(null); setProspectDraft('') }}
                               style={{ fontSize: 10, padding: '2px 5px', background: 'none', border: '1px solid var(--border)', borderRadius: 3, cursor: 'pointer' }}>✕</button>
                           </div>
                         ) : (
                           <button onClick={() => { setAddingProspectFor(p.name); setProspectDraft('') }}
-                            style={{ fontSize: 10, color: '#92400e', background: 'none', border: '1px dashed #fde68a', borderRadius: 3, padding: '2px 7px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                            style={{ fontSize: 10, color: '#0f766e', background: 'none', border: '1px dashed #99f6e4', borderRadius: 3, padding: '2px 7px', cursor: 'pointer', alignSelf: 'flex-start' }}>
                             + Add
                           </button>
                         )}
