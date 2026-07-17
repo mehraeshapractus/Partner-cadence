@@ -78,24 +78,15 @@ export default function WeeklyMatrix({ weekly, liveData = {}, partners = [] }: {
         ))}
       </div>
       {spocs.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginRight: 2 }}>SPOC</span>
-          {spocs.map(s => (
-            <button
-              key={s}
-              onClick={() => setSpocFilter(s)}
-              style={{
-                fontSize: 11, fontWeight: 600, padding: '3px 12px', borderRadius: 20,
-                border: '1px solid',
-                borderColor: spocFilter === s ? '#0f766e' : '#e2e8f0',
-                background: spocFilter === s ? '#0f766e' : '#fff',
-                color: spocFilter === s ? '#fff' : '#64748b',
-                cursor: 'pointer', transition: 'all 0.15s',
-              }}
-            >
-              {s}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>SPOC</span>
+          <select
+            value={spocFilter}
+            onChange={e => setSpocFilter(e.target.value)}
+            style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, border: '1px solid #e2e8f0', color: '#374151', background: '#fff', cursor: 'pointer' }}
+          >
+            {spocs.map(s => <option key={s}>{s}</option>)}
+          </select>
         </div>
       )}
       <div className="matrix-scroll">
