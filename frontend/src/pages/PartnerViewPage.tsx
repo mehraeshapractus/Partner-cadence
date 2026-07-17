@@ -124,6 +124,20 @@ export default function PartnerViewPage() {
   const openActs   = allActions.filter(a => actionStates[aKey(a)] !== 'done')
   const closedActs = allActions.filter(a => actionStates[aKey(a)] === 'done')
 
+  function classifyAction(text: string): 'practus' | 'partner' {
+    const lower = text.toLowerCase()
+    if (lower.includes('practus')) return 'practus'
+    // Extract meaningful name tokens from the SPOC string (e.g. "SVenkat" → "venkat")
+    const tokens = (partner?.spoc || '')
+      .replace(/[^a-zA-Z]/g, ' ')
+      .split(/\s+/)
+      .flatMap(t => (t.match(/[A-Z][a-z]+|[A-Z]+(?=[A-Z])|[a-z]+/g) || [t]))
+      .filter(t => t.length >= 4)
+      .map(t => t.toLowerCase())
+    const firstWords = lower.split(/\s+/).slice(0, 3).join(' ')
+    return tokens.some(t => firstWords.includes(t)) ? 'practus' : 'partner'
+  }
+
   const reportUrl  = liveData?.report_url || ''
   const today      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -229,68 +243,93 @@ export default function PartnerViewPage() {
           )}
         </div>
 
-        {/* Open Actions */}
+        {/* Open Actions — split Partner vs Practus */}
         {allActions.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 16 }}>
               Open Actions <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
             </div>
+
             {openActs.length > 0 ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <tbody>
-                  {openActs.map((a) => {
-                    return (
-                      <tr key={a} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ width: 32, paddingTop: 10, paddingBottom: 10, verticalAlign: 'top' }}>
-                          <svg
-                            onClick={() => toggleDone(a)}
-                            aria-label="Mark as done"
-                            className="action-radio-open"
-                            width="22" height="22" viewBox="0 0 22 22"
-                            style={{ cursor: 'pointer', display: 'block', flexShrink: 0 }}
-                          >
-                            <circle cx="11" cy="11" r="8.5" fill="white" stroke="#475569" strokeWidth="2.5"/>
-                          </svg>
-                        </td>
-                        <td style={{ fontSize: 13.5, color: '#1e293b', lineHeight: 1.65, padding: '10px 8px 10px 0', verticalAlign: 'top' }}>
-                          {a}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+                {/* Partner column */}
+                <div style={{ borderRight: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 16px', background: '#f0fdfa', borderBottom: '1px solid #e2e8f0' }}>
+                    {partner.name}
+                  </div>
+                  {openActs.filter(a => classifyAction(a) === 'partner').length === 0
+                    ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
+                    : openActs.filter(a => classifyAction(a) === 'partner').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
+                          width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="white" stroke="#475569" strokeWidth="2.5"/>
+                        </svg>
+                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
+                      </div>
+                    ))
+                  }
+                </div>
+                {/* Practus column */}
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 16px', background: '#eff6ff', borderBottom: '1px solid #e2e8f0' }}>
+                    Practus
+                  </div>
+                  {openActs.filter(a => classifyAction(a) === 'practus').length === 0
+                    ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
+                    : openActs.filter(a => classifyAction(a) === 'practus').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
+                          width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="white" stroke="#1d4ed8" strokeWidth="2.5"/>
+                        </svg>
+                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
             ) : (
               <div style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>All actions marked as done.</div>
             )}
 
             {closedActs.length > 0 && (
-              <details style={{ marginTop: 16 }}>
+              <details style={{ marginTop: 14 }}>
                 <summary style={{ fontSize: 11, color: '#94a3b8', cursor: 'pointer', fontWeight: 600, userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>▸</span> Closed ({closedActs.length})
                 </summary>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, opacity: 0.65 }}>
-                  <tbody>
-                    {closedActs.map((a) => (
-                      <tr key={a} style={{ borderBottom: '1px solid #f8fafc' }}>
-                        <td style={{ width: 32, paddingTop: 8, paddingBottom: 8, verticalAlign: 'top' }}>
-                          <svg
-                            onClick={() => toggleDone(a)}
-                            aria-label="Reopen action"
-                            width="22" height="22" viewBox="0 0 22 22"
-                            style={{ cursor: 'pointer', display: 'block' }}
-                          >
-                            <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
-                            <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
-                          </svg>
-                        </td>
-                        <td style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.6, padding: '8px 8px 8px 0', textDecoration: 'line-through', verticalAlign: 'top' }}>
-                          {a}
-                        </td>
-                      </tr>
+                <div style={{ marginTop: 8, border: '1px solid #f1f5f9', borderRadius: 8, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr', opacity: 0.75 }}>
+                  <div style={{ borderRight: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>{partner.name}</div>
+                    {closedActs.filter(a => classifyAction(a) === 'partner').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Reopen action" width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
+                          <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
+                        </svg>
+                        <span style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, textDecoration: 'line-through' }}>{a}</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                    {closedActs.filter(a => classifyAction(a) === 'partner').length === 0 && (
+                      <div style={{ padding: '10px 14px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>None</div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>Practus</div>
+                    {closedActs.filter(a => classifyAction(a) === 'practus').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Reopen action" width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
+                          <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
+                        </svg>
+                        <span style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, textDecoration: 'line-through' }}>{a}</span>
+                      </div>
+                    ))}
+                    {closedActs.filter(a => classifyAction(a) === 'practus').length === 0 && (
+                      <div style={{ padding: '10px 14px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>None</div>
+                    )}
+                  </div>
+                </div>
               </details>
             )}
           </div>
@@ -345,8 +384,7 @@ export default function PartnerViewPage() {
           body { background: #fff !important; }
           button { display: none !important; }
         }
-        .action-radio-open circle { transition: stroke 0.15s; }
-        .action-radio-open:hover circle { stroke: #14b8a6; }
+        .action-radio-open circle { transition: stroke 0.15s, fill 0.15s; }
         .action-radio-open:hover { filter: drop-shadow(0 0 3px rgba(20,184,166,0.35)); }
       `}</style>
     </div>
