@@ -26,8 +26,8 @@ TOKEN_URL  = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
 
 
 async def main():
-    if not all([TENANT_ID, CLIENT_ID, CLIENT_SECRET]):
-        print("ERROR: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET must be set in .env")
+    if not all([TENANT_ID, CLIENT_ID]):
+        print("ERROR: AZURE_TENANT_ID and AZURE_CLIENT_ID must be set in .env")
         return
 
     print(f"CLIENT_ID: {CLIENT_ID[:8]}... CLIENT_SECRET: {'set' if CLIENT_SECRET else 'MISSING'}")
@@ -53,7 +53,7 @@ async def main():
         expires_in = int(flow.get("expires_in", 900))
         deadline   = time.time() + expires_in
 
-        # Step 2: poll for token (omit client_secret if not set — public client)
+        # Step 2: poll for token — public client flow, no client_secret
         while time.time() < deadline:
             await asyncio.sleep(interval)
 
@@ -62,8 +62,6 @@ async def main():
                 "device_code": flow["device_code"],
                 "client_id":   CLIENT_ID,
             }
-            if CLIENT_SECRET:
-                poll_data["client_secret"] = CLIENT_SECRET
             r = await client.post(TOKEN_URL, data=poll_data)
             result = r.json()
 
