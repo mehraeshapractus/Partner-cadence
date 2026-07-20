@@ -1,18 +1,25 @@
 import asyncio
 import copy
+import html as _html
 import json
+import os
+import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import httpx
 from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from graph import run_sync
+from graph import run_sync, _match_partner_by_title
 from partners import PARTNERS, WEEKLY
+
+GRAPH_BASE  = "https://graph.microsoft.com/v1.0"
+MYRAH_EMAIL = os.getenv("MYRAH_EMAIL", "")
 
 # In-memory cache — replaced after each sync
 _cache: dict = {
@@ -89,12 +96,106 @@ def _save_states():
         pass
 
 
+def _extract_email_actions(text: str) -> List[str]:
+    """Pull action items from email plain-text after common next-steps headers."""
+    # Try to find a section header first
+    section_re = re.compile(
+        r'(?:next\s+steps?|action\s+items?|actions?\s*:|to[\s\-]?do|follow[\s\-]?ups?|key\s+actions?)'
+        r'[\s:\-]*\n?(.*?)(?=\n\s*\n|\Z)',
+        re.I | re.DOTALL,
+    )
+    items: List[str] = []
+    for m in section_re.finditer(text):
+        for line in m.group(1).splitlines():
+            line = re.sub(r'^[\s\-\*\•\d\.\)]+', '', line).strip()
+            if 12 <= len(line) <= 300:
+                items.append(line)
+        if items:
+            break
+
+    # Fallback: pick up standalone bullet lines anywhere in the email
+    if not items:
+        for line in text.splitlines():
+            line = line.strip()
+            if re.match(r'^[\-\*\•]\s+.{12,}', line):
+                items.append(re.sub(r'^[\-\*\•]\s+', '', line).strip())
+
+    return items[:10]
+
+
+async def _sweep_emails():
+    """Read Myrah's inbox (last 72h); extract next steps and append to manual actions."""
+    from outlook_auth import get_graph_token as _graph_token
+    token = await _graph_token()
+    if not token or not MYRAH_EMAIL:
+        return
+
+    headers = {"Authorization": f"Bearer {token}"}
+    now   = datetime.now(timezone.utc)
+    since = (now - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(
+                f"{GRAPH_BASE}/users/{MYRAH_EMAIL}/messages",
+                headers=headers,
+                params={
+                    "$filter":  f"receivedDateTime ge {since}",
+                    "$select":  "id,subject,body,from,receivedDateTime",
+                    "$top":     50,
+                    "$orderby": "receivedDateTime desc",
+                },
+            )
+            if r.status_code != 200:
+                return
+            emails = r.json().get("value", [])
+    except Exception:
+        return
+
+    changed = False
+    for email in emails:
+        subject      = email.get("subject", "") or ""
+        body_content = (email.get("body") or {}).get("content", "")
+        body_text    = _html.unescape(re.sub(r'<[^>]+>', ' ', body_content))
+        body_text    = re.sub(r'\s+', ' ', body_text).strip()
+
+        steps = _extract_email_actions(body_text)
+        if not steps:
+            continue
+
+        # Match email to a partner via subject, then body
+        partner_match = _match_partner_by_title(subject)
+        if not partner_match:
+            combined = (subject + " " + body_text[:800]).lower()
+            for p in PARTNERS:
+                pn = p["name"].lower()
+                if len(pn) >= 5 and pn in combined:
+                    partner_match = p
+                    break
+
+        if not partner_match:
+            continue
+
+        pname    = partner_match["name"]
+        static   = next((p.get("actions", []) for p in PARTNERS if p["name"] == pname), [])
+        existing = list(_manual.get(pname, [])) + list(static)
+        for step in steps:
+            if not any(e.lower().strip() == step.lower().strip() for e in existing):
+                _manual.setdefault(pname, []).append(step)
+                existing.append(step)
+                changed = True
+
+    if changed:
+        _save_manual()
+
+
 async def do_sync():
     result = await run_sync()
     _cache["live_data"] = result.get("live_data", {})
     _cache["weekly"]    = result.get("weekly", WEEKLY)
     _cache["errors"]    = result.get("errors", [])
     _cache["synced_at"] = result.get("synced_at")
+    await _sweep_emails()   # extract next steps from recent emails
 
 
 async def _auto_sync_loop():

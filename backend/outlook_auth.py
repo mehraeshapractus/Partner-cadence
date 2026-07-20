@@ -51,7 +51,7 @@ async def get_graph_token() -> str:
                 "client_secret": d.get("client_secret", ""),
                 "refresh_token": d["refresh_token"],
                 "grant_type":    "refresh_token",
-                "scope":         d.get("scope", "https://graph.microsoft.com/Calendars.Read offline_access"),
+                "scope":         d.get("scope", "https://graph.microsoft.com/Calendars.Read Mail.Read offline_access"),
             })
             r.raise_for_status()
             tokens = r.json()
