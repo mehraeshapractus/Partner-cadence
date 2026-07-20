@@ -57,8 +57,15 @@ def _match_partner_by_title(title: str) -> Dict | None:
     if not clean:
         return None
 
+    # Build first-name uniqueness map once per call (fast — PARTNERS is small)
+    first_name_map: Dict[str, list] = {}
+    for p in PARTNERS:
+        fname = p["name"].split()[0].lower()
+        first_name_map.setdefault(fname, []).append(p)
+
     best = None
     best_score = 0
+    title_words = set(clean.split())
     for p in PARTNERS:
         pn = p["name"].lower()
         # Exact phrase match — highest confidence
@@ -69,12 +76,21 @@ def _match_partner_by_title(title: str) -> Dict | None:
             continue
         # All significant words of partner name must appear in title
         pn_words = [w for w in pn.split() if len(w) > 2]
-        title_words = set(clean.split())
         if pn_words and all(w in title_words for w in pn_words):
             score = sum(len(w) for w in pn_words)
             if score > best_score:
                 best, best_score = p, score
-    return best
+
+    if best:
+        return best
+
+    # Fallback: first-name-only match, but ONLY when that first name is unique across all partners
+    for p in PARTNERS:
+        fname = p["name"].split()[0].lower()
+        if fname in title_words and len(first_name_map.get(fname, [])) == 1:
+            return p
+
+    return None
 
 # ── Nodes ────────────────────────────────────────────────────────────────────
 
@@ -325,9 +341,9 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
                 if partner_name not in week_partners[typ][sbu]:
                     week_partners[typ][sbu].append(partner_name)
 
-    # Second pass: email-match ALL Read.ai meetings for meetings_history only.
-    # No detail API calls here — we only use list-level data (title, date, report_url).
-    # This fills history for partners who have meetings outside cadence keyword filters.
+    # Second pass: match ALL Read.ai meetings for meetings_history only.
+    # Uses email, participant display-name, AND meeting title matching.
+    # No detail API calls — only list-level data (title, date, report_url).
     for meeting in state.get("all_meetings_raw", []):
         participants = meeting.get("participants") or []
         start_ms     = meeting.get("start_time_ms", 0)
@@ -336,17 +352,28 @@ async def fetch_meeting_details(state: SyncState) -> SyncState:
         report_url   = meeting.get("report_url", "")
         raw_title    = meeting.get("title", "") or ""
 
-        # Email-only matching (precise — avoids pulling in prospect meetings by name)
-        email_matched: set = set()
+        matched_set: set = set()
+        # 1. Email match
         for participant in participants:
             p_email = (participant.get("email", "") or "").lower().strip()
             pm = _match_partner(p_email)
             if pm:
-                email_matched.add(pm["name"])
+                matched_set.add(pm["name"])
+            # 2. Participant display-name match (handles "Graham Kitching" or just "Graham")
+            p_name = (participant.get("name", "") or "").strip()
+            if p_name:
+                pm2 = _match_partner_by_title(p_name)
+                if pm2:
+                    matched_set.add(pm2["name"])
+        # 3. Meeting title match (catches "Graham call", "Call with Graham Kitching", etc.)
+        tm = _match_partner_by_title(raw_title)
+        if tm:
+            matched_set.add(tm["name"])
 
-        for partner_name in email_matched:
+        for partner_name in matched_set:
+            # Create a live entry if this partner wasn't matched in the first pass
             if partner_name not in live:
-                continue  # only enrich already-matched partners
+                live[partner_name] = {"notes": "", "actions": [], "last_meeting": "", "report_url": "", "meetings_history": []}
             ld = live[partner_name]
             if "meetings_history" not in ld:
                 ld["meetings_history"] = []
