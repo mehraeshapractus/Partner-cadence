@@ -45,14 +45,16 @@ async def get_graph_token() -> str:
     # Refresh using the stored refresh token
     token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
     try:
+        refresh_data = {
+            "client_id":     d["client_id"],
+            "refresh_token": d["refresh_token"],
+            "grant_type":    "refresh_token",
+            "scope":         d.get("scope", "https://graph.microsoft.com/Calendars.Read Mail.Read offline_access"),
+        }
+        if d.get("client_secret"):
+            refresh_data["client_secret"] = d["client_secret"]
         async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.post(token_url, data={
-                "client_id":     d["client_id"],
-                "client_secret": d.get("client_secret", ""),
-                "refresh_token": d["refresh_token"],
-                "grant_type":    "refresh_token",
-                "scope":         d.get("scope", "https://graph.microsoft.com/Calendars.Read Mail.Read offline_access"),
-            })
+            r = await client.post(token_url, data=refresh_data)
             r.raise_for_status()
             tokens = r.json()
     except Exception as e:

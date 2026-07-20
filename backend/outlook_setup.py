@@ -53,16 +53,18 @@ async def main():
         expires_in = int(flow.get("expires_in", 900))
         deadline   = time.time() + expires_in
 
-        # Step 2: poll with client_secret included
+        # Step 2: poll for token (omit client_secret if not set — public client)
         while time.time() < deadline:
             await asyncio.sleep(interval)
 
-            r = await client.post(TOKEN_URL, data={
-                "grant_type":    "urn:ietf:params:oauth:grant-type:device_code",
-                "device_code":   flow["device_code"],
-                "client_id":     CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-            })
+            poll_data = {
+                "grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
+                "device_code": flow["device_code"],
+                "client_id":   CLIENT_ID,
+            }
+            if CLIENT_SECRET:
+                poll_data["client_secret"] = CLIENT_SECRET
+            r = await client.post(TOKEN_URL, data=poll_data)
             result = r.json()
 
             err = result.get("error", "")
