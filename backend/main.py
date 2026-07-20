@@ -52,6 +52,24 @@ def _load_reports():
     except Exception:
         _reports = {}
 
+# Manual meetings — keyed by partner name; list of {date, url, title}
+MEETINGS_FILE: Path = Path(__file__).parent / "manual_meetings.json"
+_meetings_manual: Dict[str, List[Dict]] = {}
+
+def _load_meetings_manual():
+    global _meetings_manual
+    try:
+        if MEETINGS_FILE.exists():
+            _meetings_manual = json.loads(MEETINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        _meetings_manual = {}
+
+def _save_meetings_manual():
+    try:
+        MEETINGS_FILE.write_text(json.dumps(_meetings_manual, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
 # Action states — persisted to file
 STATES_FILE: Path = Path(__file__).parent / "action_states.json"
 _states: Dict[str, Dict[str, str]] = {}
@@ -85,6 +103,7 @@ async def lifespan(app: FastAPI):
     _load_prospects()
     _load_states()
     _load_reports()
+    _load_meetings_manual()
     asyncio.create_task(do_sync())   # warm sync on startup
     yield
 
@@ -119,6 +138,17 @@ async def get_partners():
             lm_date = entry.get("last_meeting") or pdata.get("last_meeting", "")
             if lm_date:
                 entry["meetings_history"] = [{"date": lm_date, "url": rurl, "title": "Partner meeting"}]
+    # Merge manually-added meetings (marked manual=True so frontend can identify them)
+    for pname, mtgs in _meetings_manual.items():
+        entry = live.setdefault(pname, {"notes": "", "actions": [], "last_meeting": "", "report_url": "", "meetings_history": []})
+        if "meetings_history" not in entry:
+            entry["meetings_history"] = []
+        existing_dates = {m.get("date", "") for m in entry["meetings_history"]}
+        for i, mtg in enumerate(mtgs):
+            if mtg.get("date") and mtg["date"] not in existing_dates:
+                entry["meetings_history"].append({**mtg, "manual": True, "manual_idx": i})
+                existing_dates.add(mtg["date"])
+        entry["meetings_history"].sort(key=lambda m: m.get("date", ""), reverse=True)
     return {
         "partners":   partners,
         "live_data":  live,
@@ -225,6 +255,39 @@ async def delete_manual_action(partner_name: str, index: int):
         if not acts:
             del _manual[partner_name]
         _save_manual()
+    return {"ok": True}
+
+
+@app.get("/api/manual-meetings/{partner_name}")
+async def get_manual_meetings(partner_name: str):
+    from urllib.parse import unquote
+    pname = unquote(partner_name)
+    return {"meetings": _meetings_manual.get(pname, [])}
+
+@app.post("/api/manual-meetings/{partner_name}")
+async def add_manual_meeting(partner_name: str, body: dict = Body(...)):
+    from urllib.parse import unquote
+    pname = unquote(partner_name)
+    date  = (body.get("date")  or "").strip()
+    url   = (body.get("url")   or "").strip()
+    title = (body.get("title") or "").strip()
+    if not date:
+        return {"ok": False, "error": "date required"}
+    _meetings_manual.setdefault(pname, []).append({"date": date, "url": url, "title": title or "Partner meeting"})
+    _meetings_manual[pname].sort(key=lambda m: m.get("date", ""), reverse=True)
+    _save_meetings_manual()
+    return {"ok": True, "meetings": _meetings_manual[pname]}
+
+@app.delete("/api/manual-meetings/{partner_name}/{index}")
+async def delete_manual_meeting(partner_name: str, index: int):
+    from urllib.parse import unquote
+    pname = unquote(partner_name)
+    mtgs  = _meetings_manual.get(pname, [])
+    if 0 <= index < len(mtgs):
+        mtgs.pop(index)
+        if not mtgs:
+            del _meetings_manual[pname]
+        _save_meetings_manual()
     return {"ok": True}
 
 

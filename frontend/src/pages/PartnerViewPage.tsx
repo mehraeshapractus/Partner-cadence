@@ -26,6 +26,11 @@ export default function PartnerViewPage() {
   const [copied,        setCopied]        = useState(false)
   const [actionStates,  setActionStates]  = useState<Record<string, string>>({})
   const [practusTokens, setPractusTokens] = useState<string[]>(['practus'])
+  const [manualMeetings, setManualMeetings] = useState<Array<{date: string; url: string; title: string}>>([])
+  const [addingMeeting,  setAddingMeeting]  = useState(false)
+  const [meetingDate,    setMeetingDate]    = useState('')
+  const [meetingUrl,     setMeetingUrl]     = useState('')
+  const [meetingSaving,  setMeetingSaving]  = useState(false)
 
   const decodedName = name ? decodeURIComponent(name) : ''
 
@@ -34,14 +39,16 @@ export default function PartnerViewPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [pr, mr, sr] = await Promise.all([
+        const [pr, mr, sr, mmr] = await Promise.all([
           fetch('/api/partners'),
           fetch('/api/manual-actions'),
           fetch(`/api/action-states/${encodeURIComponent(decodedName)}`),
+          fetch(`/api/manual-meetings/${encodeURIComponent(decodedName)}`),
         ])
         const pd = await pr.json()
         const md = await mr.json()
         const sd = await sr.json()
+        const mmd = await mmr.json()
         const p = (pd.partners as Partner[]).find(
           x => x.name.toLowerCase() === decodedName.toLowerCase()
         )
@@ -83,6 +90,7 @@ export default function PartnerViewPage() {
         setLiveData(ldData)
         setManualActions(mnActs)
         setActionStates(merged)
+        setManualMeetings(mmd.meetings || [])
       } catch { } finally { setLoading(false) }
     }
     load()
@@ -103,6 +111,32 @@ export default function PartnerViewPage() {
     navigator.clipboard.writeText(window.location.href)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function addMeeting() {
+    if (!meetingDate || !partner) return
+    setMeetingSaving(true)
+    try {
+      const res = await fetch(`/api/manual-meetings/${encodeURIComponent(partner.name)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: meetingDate, url: meetingUrl.trim(), title: '' }),
+      })
+      const d = await res.json()
+      if (d.ok) {
+        setManualMeetings(d.meetings || [])
+        setAddingMeeting(false)
+        setMeetingDate('')
+        setMeetingUrl('')
+      }
+    } finally { setMeetingSaving(false) }
+  }
+
+  async function deleteMeeting(index: number) {
+    if (!partner) return
+    const res = await fetch(`/api/manual-meetings/${encodeURIComponent(partner.name)}/${index}`, { method: 'DELETE' })
+    const d = await res.json()
+    if (d.ok) setManualMeetings(prev => prev.filter((_, i) => i !== index))
   }
 
   if (loading) return (
@@ -146,6 +180,14 @@ export default function PartnerViewPage() {
 
   const reportUrl  = liveData?.report_url || ''
   const today      = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  // Merge synced + manual meetings for display (manual ones come from separate state with delete buttons)
+  const syncedMeetings = (liveData?.meetings_history || []).filter(m => !m.manual)
+  const manualDates    = new Set(manualMeetings.map(m => m.date))
+  const allMeetings    = [
+    ...syncedMeetings.filter(m => !manualDates.has(m.date)),
+    ...manualMeetings.map(m => ({ ...m, manual: true as const })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
 
   const typeColor  = partner.type === 'BD Partner' ? '#1d4ed8' : partner.type === 'Partner' ? '#0f766e' : '#7c3aed'
   const stageColor = partner.stage === 'GTM Active' ? '#b45309' : partner.stage === 'Business Referred' ? '#166534' : '#374151'
@@ -210,43 +252,105 @@ export default function PartnerViewPage() {
             </div>
           </div>
 
-          {/* Meeting history / last meeting */}
-          {(lm || (liveData?.meetings_history?.length ?? 0) > 0) && (
-            <div style={{ marginTop: 18, padding: '14px 16px', background: '#f0fdfa', borderRadius: 6, border: '1px solid #99f6e4' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Meeting History {liveData?.meetings_history?.length ? `(${liveData.meetings_history.length})` : ''}
-                </div>
+          {/* Meeting History — always visible, manually addable */}
+          <div style={{ marginTop: 18, padding: '14px 16px', background: '#f0fdfa', borderRadius: 6, border: '1px solid #99f6e4' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Meeting History {allMeetings.length > 0 ? `(${allMeetings.length})` : ''}
+                </span>
                 {da !== null && (
                   <span style={{
-                    fontSize: 12, fontWeight: 700, borderRadius: 4, padding: '4px 12px',
+                    fontSize: 12, fontWeight: 700, borderRadius: 4, padding: '3px 10px',
                     background: da <= 7 ? '#dcfce7' : da <= 21 ? '#fef3c7' : '#fee2e2',
                     color: da <= 7 ? '#166534' : da <= 21 ? '#92400e' : '#991b1b',
                     border: `1px solid ${da <= 7 ? '#86efac' : da <= 21 ? '#fde68a' : '#fca5a5'}`
                   }}>{da}d ago</span>
                 )}
               </div>
-              {liveData?.meetings_history && liveData.meetings_history.length > 0 ? (
-                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {liveData.meetings_history.map((m, i) => (
+              {!addingMeeting && (
+                <button
+                  onClick={() => setAddingMeeting(true)}
+                  style={{ fontSize: 11, padding: '3px 10px', borderRadius: 4, border: '1px solid #14b8a6', background: '#fff', color: '#0f766e', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  + Add call
+                </button>
+              )}
+            </div>
+
+            {allMeetings.length > 0 ? (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {allMeetings.map((m, i) => {
+                  const manualIdx = m.manual
+                    ? manualMeetings.findIndex(mm => mm.date === m.date && mm.url === m.url)
+                    : -1
+                  return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: '#0f2d3d', minWidth: 90 }}>{m.date}</span>
+                      <span style={{ fontSize: 13, fontWeight: i === 0 ? 600 : 400, color: '#0f2d3d', minWidth: 92, fontVariantNumeric: 'tabular-nums' }}>{m.date}</span>
                       {m.url ? (
                         <a href={m.url} target="_blank" rel="noopener noreferrer" title={m.title}
-                          style={{ fontSize: 11, color: '#0f766e', background: '#fff', border: '1px solid #14b8a6', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                          style={{ fontSize: 11, color: '#0f766e', background: '#fff', border: '1px solid #14b8a6', borderRadius: 4, padding: '3px 10px', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
                           📋 Read.ai
                         </a>
                       ) : (
                         <span style={{ fontSize: 11, color: '#94a3b8' }}>{m.title || '—'}</span>
                       )}
+                      {m.manual && manualIdx >= 0 && (
+                        <button
+                          onClick={() => deleteMeeting(manualIdx)}
+                          title="Remove this entry"
+                          style={{ marginLeft: 'auto', fontSize: 11, background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px 4px', lineHeight: 1, flexShrink: 0 }}
+                        >✕</button>
+                      )}
                     </div>
-                  ))}
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                No calls synced yet — add one manually with the button above.
+              </div>
+            )}
+
+            {addingMeeting && (
+              <div style={{ marginTop: 12, padding: '12px 14px', background: '#fff', borderRadius: 6, border: '1px solid #b2f5ea', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.4 }}>Date</label>
+                  <input
+                    type="date"
+                    value={meetingDate}
+                    onChange={e => setMeetingDate(e.target.value)}
+                    style={{ fontSize: 13, padding: '5px 8px', borderRadius: 4, border: '1px solid #cbd5e1', color: '#0f2d3d', outline: 'none' }}
+                  />
                 </div>
-              ) : (
-                <div style={{ marginTop: 6, fontSize: 14, fontWeight: 600, color: '#0f2d3d' }}>{lm}</div>
-              )}
-            </div>
-          )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 180 }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.4 }}>Read.ai link (optional)</label>
+                  <input
+                    type="url"
+                    value={meetingUrl}
+                    onChange={e => setMeetingUrl(e.target.value)}
+                    placeholder="https://app.read.ai/analytics/meetings/..."
+                    style={{ fontSize: 12, padding: '5px 8px', borderRadius: 4, border: '1px solid #cbd5e1', color: '#0f2d3d', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={addMeeting}
+                    disabled={!meetingDate || meetingSaving}
+                    style={{ fontSize: 12, padding: '6px 16px', borderRadius: 4, border: 'none', background: meetingDate ? '#0f766e' : '#cbd5e1', color: '#fff', cursor: meetingDate ? 'pointer' : 'default', fontWeight: 600 }}
+                  >
+                    {meetingSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setAddingMeeting(false); setMeetingDate(''); setMeetingUrl('') }}
+                    style={{ fontSize: 12, padding: '6px 12px', borderRadius: 4, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Open Actions — split Partner vs Practus */}
