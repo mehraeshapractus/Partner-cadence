@@ -97,6 +97,17 @@ async def do_sync():
     _cache["synced_at"] = result.get("synced_at")
 
 
+async def _auto_sync_loop():
+    """Run sync every 2 hours automatically."""
+    await asyncio.sleep(60)          # short delay so startup completes first
+    while True:
+        try:
+            await do_sync()
+        except Exception:
+            pass
+        await asyncio.sleep(2 * 60 * 60)  # 2 hours
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _load_manual()
@@ -104,7 +115,8 @@ async def lifespan(app: FastAPI):
     _load_states()
     _load_reports()
     _load_meetings_manual()
-    asyncio.create_task(do_sync())   # warm sync on startup
+    asyncio.create_task(do_sync())         # warm sync on startup
+    asyncio.create_task(_auto_sync_loop()) # auto-sync every 2 hours
     yield
 
 

@@ -109,9 +109,10 @@ def _is_partner_meeting(m: dict) -> bool:
     FOLDER_KEYWORDS = ("partner", "alignment", "cadence", "planning", "bd ")
     if any(kw in f for f in folder_strs for kw in FOLDER_KEYWORDS):
         return True
-    # Title must explicitly signal a partnership meeting — NOT just mention a partner's name
-    # (that would match prospect/client meetings where a partner happens to be present)
     title = m.get("title", "").lower()
+    # "<> Practus" or "Practus <>" format = internal bilateral meeting
+    if "<>" in title and "practus" in title:
+        return True
     TITLE_KEYWORDS = (
         "partner", "cadence", "alignment", "bi-weekly", "biweekly",
         "check-in", "catch-up", "partnership", "planning call",
