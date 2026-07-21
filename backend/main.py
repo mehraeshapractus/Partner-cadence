@@ -21,6 +21,21 @@ from partners import PARTNERS, WEEKLY
 GRAPH_BASE  = "https://graph.microsoft.com/v1.0"
 MYRAH_EMAIL = os.getenv("MYRAH_EMAIL", "")
 
+# Persistent data directory — set DATA_DIR env var to a Railway volume mount
+# (e.g. /data).  Falls back to the repo directory so local dev works unchanged.
+_REPO_DIR = Path(__file__).parent
+DATA_DIR   = Path(os.getenv("DATA_DIR", str(_REPO_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+def _data_file(name: str) -> Path:
+    """Return DATA_DIR/name, seeding from the bundled repo copy on first use."""
+    target = DATA_DIR / name
+    if not target.exists():
+        source = _REPO_DIR / name
+        if source.exists():
+            target.write_bytes(source.read_bytes())
+    return target
+
 # In-memory cache — replaced after each sync
 _cache: dict = {
     "live_data": {},
@@ -29,8 +44,8 @@ _cache: dict = {
     "synced_at": None,
 }
 
-# Manual actions — persisted to file
-MANUAL_FILE: Path = Path(__file__).parent / "manual_actions.json"
+# Manual actions — persisted to DATA_DIR
+MANUAL_FILE: Path = _data_file("manual_actions.json")
 _manual: Dict[str, List[str]] = {}
 
 def _load_manual():
@@ -48,7 +63,7 @@ def _save_manual():
         pass
 
 # Manual report URLs — keyed by partner name; never overrides a synced report_url
-REPORTS_FILE: Path = Path(__file__).parent / "manual_reports.json"
+REPORTS_FILE: Path = _data_file("manual_reports.json")
 _reports: Dict[str, str] = {}
 
 def _load_reports():
@@ -60,7 +75,7 @@ def _load_reports():
         _reports = {}
 
 # Manual meetings — keyed by partner name; list of {date, url, title}
-MEETINGS_FILE: Path = Path(__file__).parent / "manual_meetings.json"
+MEETINGS_FILE: Path = _data_file("manual_meetings.json")
 _meetings_manual: Dict[str, List[Dict]] = {}
 
 def _load_meetings_manual():
@@ -77,8 +92,8 @@ def _save_meetings_manual():
     except Exception:
         pass
 
-# Action states — persisted to file
-STATES_FILE: Path = Path(__file__).parent / "action_states.json"
+# Action states — persisted to DATA_DIR
+STATES_FILE: Path = _data_file("action_states.json")
 _states: Dict[str, Dict[str, str]] = {}
 
 def _load_states():
@@ -328,8 +343,8 @@ async def get_report():
     }
 
 
-# Manual prospects — persisted to file
-PROSPECTS_FILE: Path = Path(__file__).parent / "manual_prospects.json"
+# Manual prospects — persisted to DATA_DIR
+PROSPECTS_FILE: Path = _data_file("manual_prospects.json")
 _prospects: Dict[str, List[str]] = {}
 
 def _load_prospects():
