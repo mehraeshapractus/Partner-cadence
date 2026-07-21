@@ -136,6 +136,27 @@ def main():
     with open(TOKEN_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
+    # Verify who signed in
+    with httpx.Client(timeout=15) as client:
+        me = client.get(
+            "https://graph.microsoft.com/v1.0/me",
+            headers={"Authorization": f"Bearer {result['access_token']}"},
+            params={"$select": "displayName,mail,userPrincipalName"},
+        )
+        me_data = me.json()
+
+    signed_in_as = me_data.get("mail") or me_data.get("userPrincipalName") or "unknown"
+    display_name = me_data.get("displayName", "")
+
+    print(f"\n{'='*60}")
+    print(f"  Signed in as: {display_name} <{signed_in_as}>")
+    print(f"{'='*60}")
+
+    if signed_in_as.lower() != (myrah_email or "").lower():
+        print(f"\n  WARNING: Expected {myrah_email} but got {signed_in_as}")
+        print("  Run the script again and sign in as Myrah.\n")
+        return
+
     print(f"\nSuccess! Tokens saved to {TOKEN_FILE}")
     print(f"Granted scopes: {data['scope']}")
     print("\nNext step: copy the contents of .outlook_token.json and set it as")
