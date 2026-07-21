@@ -36,28 +36,37 @@ export default function CadencePage() {
     return () => window.removeEventListener('practus:synced', fetchData)
   }, [fetchData])
 
+  const INACTIVE_STAGES = new Set(['Dormant', 'Lost', 'Yet to be activated', ''])
+  const OVERDUE_DAYS = 30
+
   const today = new Date()
   const cutoff = new Date(today)
-  cutoff.setDate(cutoff.getDate() - 14)
+  cutoff.setDate(cutoff.getDate() - OVERDUE_DAYS)
 
   const spocs = [...new Set(partners.map(p => p.spoc).filter(Boolean))].sort()
 
-  const recent = partners
+  const overdue = partners
+    .filter(p => !INACTIVE_STAGES.has(p.stage || ''))
     .filter(p => {
       const ld = liveData[p.name]
       const lm = ld?.last_meeting || p.last_meeting
       const d  = parseDate(lm)
-      return d !== null && d >= cutoff
+      // No meeting date recorded, OR last meeting was over OVERDUE_DAYS ago
+      return d === null || d < cutoff
     })
     .filter(p => !sbu  || (p.sbu || 'Unassigned') === sbu)
     .filter(p => !spoc || p.spoc === spoc)
     .sort((a, b) => {
+      // Most overdue (oldest or no date) at the top
       const ad = parseDate(liveData[a.name]?.last_meeting || a.last_meeting)?.getTime() ?? 0
       const bd = parseDate(liveData[b.name]?.last_meeting || b.last_meeting)?.getTime() ?? 0
-      return bd - ad
+      return ad - bd
     })
 
   const todayStr = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+
+  const noDate   = overdue.filter(p => !parseDate(liveData[p.name]?.last_meeting || p.last_meeting))
+  const withDate = overdue.filter(p =>  parseDate(liveData[p.name]?.last_meeting || p.last_meeting))
 
   if (loading) return <div className="loading">Loading cadence data&#8230;</div>
 
@@ -67,7 +76,7 @@ export default function CadencePage() {
         <div className="rid">
           PRACTUS ADVISORS
           <span className="pipe">|</span> CADENCE EXCEPTION REPORT
-          <span className="pipe">|</span> Partners with calls in last 14 days
+          <span className="pipe">|</span> Active partners not spoken to in {OVERDUE_DAYS}+ days
           <span className="pipe">|</span> <span className="hi">{todayStr}</span>
         </div>
         <div className="src">
@@ -95,27 +104,21 @@ export default function CadencePage() {
 
       <div className="summary-bar">
         <div className="stat accent">
-          <div className="num">{recent.length}</div>
-          <div className="lbl">Partners with recent call</div>
+          <div className="num">{overdue.length}</div>
+          <div className="lbl">Overdue partners</div>
         </div>
         <div className="stat">
-          <div className="num">{recent.filter(p => {
-            const d = parseDate(liveData[p.name]?.last_meeting || p.last_meeting)
-            return d && (today.getTime() - d.getTime()) / 86400000 <= 7
-          }).length}</div>
-          <div className="lbl">Called this week</div>
+          <div className="num">{noDate.length}</div>
+          <div className="lbl">Never recorded</div>
         </div>
         <div className="stat">
-          <div className="num">{recent.filter(p => liveData[p.name]?.report_url).length}</div>
-          <div className="lbl">With Read.ai report</div>
+          <div className="num">{withDate.length}</div>
+          <div className="lbl">Call on record but overdue</div>
         </div>
       </div>
 
-      {recent.length === 0 ? (
-        <div className="empty">
-          No partner cadence calls found in the last 14 days.
-          {!syncedAt && ' Run a sync to pull Read.ai meeting data.'}
-        </div>
+      {overdue.length === 0 ? (
+        <div className="empty">All active partners have been contacted in the last {OVERDUE_DAYS} days.</div>
       ) : (
         <div className="report-tbl-wrap">
           <table className="report-tbl">
@@ -130,17 +133,15 @@ export default function CadencePage() {
                 <th style={{ minWidth: 95 }}>Last Meeting</th>
                 <th style={{ minWidth: 70, textAlign: 'center' }}>Days Ago</th>
                 <th style={{ minWidth: 110 }}>Read.ai Report</th>
-                <th style={{ minWidth: 200, maxWidth: 260 }}>Meeting Notes</th>
               </tr>
             </thead>
             <tbody>
-              {recent.map((p, i) => {
+              {overdue.map((p, i) => {
                 const ld       = liveData[p.name]
                 const lm       = ld?.last_meeting || p.last_meeting
                 const d        = parseDate(lm)
                 const daysAgo  = d ? Math.floor((today.getTime() - d.getTime()) / 86400000) : null
                 const reportUrl = ld?.report_url || ''
-                const notes    = ld?.notes || p.comments || ''
                 const contact  = p.partner_spoc || ''
 
                 return (
@@ -151,10 +152,10 @@ export default function CadencePage() {
                     <td style={{ fontSize: 11 }}>{p.spoc || <span className="r-nd">&#8212;</span>}</td>
                     <td><span className="sbu-tag">{p.sbu || 'Unassigned'}</span></td>
                     <td>{typeBadge(p.type)}</td>
-                    <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{lm || <span className="r-nd">&#8212;</span>}</td>
+                    <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{lm || <span className="r-nd" style={{ color: '#ef4444' }}>No meeting on record</span>}</td>
                     <td style={{ textAlign: 'center' }}>
                       {daysAgo !== null
-                        ? <span className={`r-badge ${daysAgo <= 7 ? 'r-active' : 'r-exploring'}`}>{daysAgo}d</span>
+                        ? <span className={`r-badge ${daysAgo > 60 ? 'r-bd' : 'r-exploring'}`}>{daysAgo}d</span>
                         : <span className="r-nd">&#8212;</span>}
                     </td>
                     <td>
@@ -167,11 +168,6 @@ export default function CadencePage() {
                           >
                             &#x1F4CB; Read.ai report
                           </a>
-                        : <span className="r-nd">No report yet</span>}
-                    </td>
-                    <td style={{ fontSize: 11 }}>
-                      {notes
-                        ? <span style={{ whiteSpace: 'pre-line' }}>{notes.split('\n\n')[0]}</span>
                         : <span className="r-nd">&#8212;</span>}
                     </td>
                   </tr>
@@ -183,9 +179,8 @@ export default function CadencePage() {
       )}
 
       <div className="footnote">
-        Partners where Read.ai last_meeting date falls within the last 14 days.
-        Only partner cadence, alignment, and planning calls are tracked.
-        Generated: {todayStr}.
+        Active partners (GTM Active, Business Referred, Discussion Initiated) with no meeting in the last {OVERDUE_DAYS} days.
+        Sorted by most overdue first. Generated: {todayStr}.
       </div>
     </>
   )
