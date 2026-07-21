@@ -206,7 +206,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
     })
   }
 
-  const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Meeting Notes & Key Updates', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
+  const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
 
   const selectedPartner = selected ? partners.find(p => p.name === selected) : null
   const selectedLd      = selected ? (liveData[selected] || { notes: '', actions: [], last_meeting: '', report_url: '' }) : null
@@ -297,20 +297,6 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                     return lm ? <span style={{ fontSize: 10.5 }}>{lm}</span> : <span className="placeholder">—</span>
                   })()}
                 </td>
-                <td style={{ maxWidth: 260, fontSize: 11 }}>
-                  {notesText ? (
-                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.45, maxHeight: 120, overflow: 'hidden' }}>{notesText}</div>
-                  ) : <span className="placeholder">&mdash;</span>}
-                  {reportUrl && !ld.meetings_history?.length && (
-                    <div style={{ marginTop: 4 }}>
-                      <a href={reportUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: 10, color: 'var(--teal-d)', textDecoration: 'none', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '2px 6px', borderRadius: 3, whiteSpace: 'nowrap' }}>
-                        &#x1F4CB; Read.ai report
-                      </a>
-                    </div>
-                  )}
-                </td>
-
                 {/* Open Actions column */}
                 <td style={{ minWidth: 260 }}>
                   {hcAct.length === 0 && lvAct.length === 0 && mnAct.length === 0 && !isAdding ? (

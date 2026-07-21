@@ -31,7 +31,6 @@ export default function PartnerViewPage() {
   const [meetingDate,    setMeetingDate]    = useState('')
   const [meetingUrl,     setMeetingUrl]     = useState('')
   const [meetingSaving,  setMeetingSaving]  = useState(false)
-  const [activeTab,      setActiveTab]      = useState<'overview' | 'actions'>('overview')
 
   const decodedName = name ? decodeURIComponent(name) : ''
 
@@ -199,7 +198,7 @@ export default function PartnerViewPage() {
     if (practusActs.length > 0)
       body += `\n\nPending from Practus:\n${practusActs.map(a => `• ${a}`).join('\n')}`
     if (prospects.length > 0)
-      body += `\n\nShared pipeline:\n${prospects.map(p => `• ${p}`).join('\n')}`
+      body += `\n\nShared pipeline:\n${prospects.map(pr => `• ${pr}`).join('\n')}`
     body += `\n\nLooking forward to our continued collaboration.\n\nBest regards,\nPractus Team`
     return `mailto:${partner.email}?subject=${encodeURIComponent(`Partnership Update — ${partner.name}`)}&body=${encodeURIComponent(body)}`
   }
@@ -226,8 +225,8 @@ export default function PartnerViewPage() {
           {partner.email && openActs.length > 0 && (
             <a
               href={buildUpdateEmailHref()}
-              style={{ fontSize: 12, padding: '5px 14px', borderRadius: 4, border: '1px solid #334155', background: '#1e3a4a', color: '#fff', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}
               title="Draft a follow-up email with open action items"
+              style={{ fontSize: 12, padding: '5px 14px', borderRadius: 4, border: '1px solid #334155', background: '#1e3a4a', color: '#fff', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
               ↻ Send Update
             </a>
@@ -251,7 +250,7 @@ export default function PartnerViewPage() {
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '32px 24px' }}>
 
         {/* Partner header card */}
-        <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '28px 32px', marginBottom: 0 }}>
+        <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '28px 32px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -279,7 +278,7 @@ export default function PartnerViewPage() {
             </div>
           </div>
 
-          {/* Meeting History — inside header card */}
+          {/* Meeting History */}
           <div style={{ marginTop: 18, padding: '14px 16px', background: '#f0fdfa', borderRadius: 6, border: '1px solid #99f6e4' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -380,177 +379,133 @@ export default function PartnerViewPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e2e8f0', marginBottom: 20, marginTop: 0, background: '#fff', borderRadius: '0 0 0 0' }}>
-          <button
-            onClick={() => setActiveTab('overview')}
-            style={{
-              fontSize: 13, fontWeight: 600, padding: '10px 22px', background: 'none', border: 'none',
-              borderBottom: activeTab === 'overview' ? '2px solid #0f766e' : '2px solid transparent',
-              color: activeTab === 'overview' ? '#0f766e' : '#6b7280',
-              cursor: 'pointer', marginBottom: -2, transition: 'color 0.1s'
-            }}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('actions')}
-            style={{
-              fontSize: 13, fontWeight: 600, padding: '10px 22px', background: 'none', border: 'none',
-              borderBottom: activeTab === 'actions' ? '2px solid #0f766e' : '2px solid transparent',
-              color: activeTab === 'actions' ? '#0f766e' : '#6b7280',
-              cursor: 'pointer', marginBottom: -2, transition: 'color 0.1s',
-              display: 'flex', alignItems: 'center', gap: 6
-            }}
-          >
-            Actions & Pipeline
-            {openActs.length > 0 && (
-              <span style={{ fontSize: 10.5, background: '#fee2e2', color: '#991b1b', borderRadius: 10, padding: '1px 7px', fontWeight: 700 }}>{openActs.length}</span>
-            )}
-          </button>
-        </div>
-
-        {/* Overview tab */}
-        {activeTab === 'overview' && (
-          <>
-            {notes && (
-              <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>Meeting Notes</div>
-                <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-line' }}>{notes}</div>
-              </div>
-            )}
-            {!notes && allMeetings.length === 0 && (
-              <div style={{ background: '#fff', borderRadius: 10, padding: '40px 32px', textAlign: 'center', color: '#9ca3af', fontSize: 13, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                No meeting data yet — sync Read.ai to populate.
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Actions & Pipeline tab */}
-        {activeTab === 'actions' && (
-          <>
-            {/* Open Actions — split Partner vs Practus */}
-            <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 16 }}>
-                Open Actions <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
-              </div>
-
-              {openActs.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
-                  {/* Partner column */}
-                  <div style={{ borderRight: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 16px', background: '#f0fdfa', borderBottom: '1px solid #e2e8f0' }}>
-                      {partner.name}
-                    </div>
-                    {openActs.filter(a => classifyAction(a) === 'partner').length === 0
-                      ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
-                      : openActs.filter(a => classifyAction(a) === 'partner').map(a => (
-                        <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
-                          <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
-                            width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
-                            <circle cx="11" cy="11" r="8.5" fill="white" stroke="#475569" strokeWidth="2.5"/>
-                          </svg>
-                          <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
-                        </div>
-                      ))
-                    }
-                  </div>
-                  {/* Practus column */}
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 16px', background: '#eff6ff', borderBottom: '1px solid #e2e8f0' }}>
-                      Practus
-                    </div>
-                    {openActs.filter(a => classifyAction(a) === 'practus').length === 0
-                      ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
-                      : openActs.filter(a => classifyAction(a) === 'practus').map(a => (
-                        <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
-                          <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
-                            width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
-                            <circle cx="11" cy="11" r="8.5" fill="white" stroke="#1d4ed8" strokeWidth="2.5"/>
-                          </svg>
-                          <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
-                        </div>
-                      ))
-                    }
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>All actions marked as done.</div>
-              )}
-
-              {closedActs.length > 0 && (
-                <details style={{ marginTop: 14 }}>
-                  <summary style={{ fontSize: 11, color: '#94a3b8', cursor: 'pointer', fontWeight: 600, userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>▸</span> Closed ({closedActs.length})
-                  </summary>
-                  <div style={{ marginTop: 8, border: '1px solid #f1f5f9', borderRadius: 8, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr', opacity: 0.75 }}>
-                    <div style={{ borderRight: '1px solid #f1f5f9' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>{partner.name}</div>
-                      {closedActs.filter(a => classifyAction(a) === 'partner').map(a => (
-                        <div key={a} style={{ display: 'flex', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
-                          <svg onClick={() => toggleDone(a)} aria-label="Reopen action" width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
-                            <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
-                            <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
-                          </svg>
-                          <span style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, textDecoration: 'line-through' }}>{a}</span>
-                        </div>
-                      ))}
-                      {closedActs.filter(a => classifyAction(a) === 'partner').length === 0 && (
-                        <div style={{ padding: '10px 14px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>None</div>
-                      )}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>Practus</div>
-                      {closedActs.filter(a => classifyAction(a) === 'practus').map(a => (
-                        <div key={a} style={{ display: 'flex', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
-                          <svg onClick={() => toggleDone(a)} aria-label="Reopen action" width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
-                            <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
-                            <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
-                          </svg>
-                          <span style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, textDecoration: 'line-through' }}>{a}</span>
-                        </div>
-                      ))}
-                      {closedActs.filter(a => classifyAction(a) === 'practus').length === 0 && (
-                        <div style={{ padding: '10px 14px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>None</div>
-                      )}
-                    </div>
-                  </div>
-                </details>
-              )}
-
-              {allActions.length === 0 && (
-                <div style={{ color: '#9ca3af', fontSize: 12, fontStyle: 'italic', marginTop: 4 }}>
-                  No actions yet — sync Read.ai or add from the tracker.
-                </div>
-              )}
+        {/* Open Actions — split Partner vs Practus */}
+        {allActions.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 16 }}>
+              Open Actions <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({openActs.length})</span>
             </div>
 
-            {/* Prospects */}
-            {prospects.length > 0 && (
-              <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
-                  Prospects / Pipeline <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({prospects.length})</span>
+            {openActs.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ borderRight: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 16px', background: '#f0fdfa', borderBottom: '1px solid #e2e8f0' }}>
+                    {partner.name}
+                  </div>
+                  {openActs.filter(a => classifyAction(a) === 'partner').length === 0
+                    ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
+                    : openActs.filter(a => classifyAction(a) === 'partner').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
+                          width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="white" stroke="#475569" strokeWidth="2.5"/>
+                        </svg>
+                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
+                      </div>
+                    ))
+                  }
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                      <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8, width: 32 }}>#</th>
-                      <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8 }}>Company / Contact</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prospects.map((pr, pi) => (
-                      <tr key={pi} style={{ borderBottom: '1px solid #f8fafc' }}>
-                        <td style={{ fontSize: 12, color: '#94a3b8', padding: '9px 8px 9px 0', verticalAlign: 'top' }}>{pi + 1}</td>
-                        <td style={{ fontSize: 13.5, color: '#0f2d3d', fontWeight: 500, padding: '9px 0', verticalAlign: 'top' }}>{pr}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 16px', background: '#eff6ff', borderBottom: '1px solid #e2e8f0' }}>
+                    Practus
+                  </div>
+                  {openActs.filter(a => classifyAction(a) === 'practus').length === 0
+                    ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
+                    : openActs.filter(a => classifyAction(a) === 'practus').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
+                          width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="white" stroke="#1d4ed8" strokeWidth="2.5"/>
+                        </svg>
+                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
+                      </div>
+                    ))
+                  }
+                </div>
               </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>All actions marked as done.</div>
             )}
-          </>
+
+            {closedActs.length > 0 && (
+              <details style={{ marginTop: 14 }}>
+                <summary style={{ fontSize: 11, color: '#94a3b8', cursor: 'pointer', fontWeight: 600, userSelect: 'none', listStyle: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>▸</span> Closed ({closedActs.length})
+                </summary>
+                <div style={{ marginTop: 8, border: '1px solid #f1f5f9', borderRadius: 8, overflow: 'hidden', display: 'grid', gridTemplateColumns: '1fr 1fr', opacity: 0.75 }}>
+                  <div style={{ borderRight: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>{partner.name}</div>
+                    {closedActs.filter(a => classifyAction(a) === 'partner').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Reopen action" width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
+                          <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
+                        </svg>
+                        <span style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, textDecoration: 'line-through' }}>{a}</span>
+                      </div>
+                    ))}
+                    {closedActs.filter(a => classifyAction(a) === 'partner').length === 0 && (
+                      <div style={{ padding: '10px 14px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>None</div>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>Practus</div>
+                    {closedActs.filter(a => classifyAction(a) === 'practus').map(a => (
+                      <div key={a} style={{ display: 'flex', gap: 8, padding: '8px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                        <svg onClick={() => toggleDone(a)} aria-label="Reopen action" width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
+                          <circle cx="11" cy="11" r="8.5" fill="#14b8a6" stroke="#14b8a6" strokeWidth="2.5"/>
+                          <text x="11" y="15.5" textAnchor="middle" fontSize="11" fill="white" fontWeight="bold">✓</text>
+                        </svg>
+                        <span style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, textDecoration: 'line-through' }}>{a}</span>
+                      </div>
+                    ))}
+                    {closedActs.filter(a => classifyAction(a) === 'practus').length === 0 && (
+                      <div style={{ padding: '10px 14px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>None</div>
+                    )}
+                  </div>
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* Prospects */}
+        {prospects.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
+              Prospects / Pipeline <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({prospects.length})</span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                  <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8, width: 32 }}>#</th>
+                  <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8 }}>Company / Contact</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prospects.map((pr, pi) => (
+                  <tr key={pi} style={{ borderBottom: '1px solid #f8fafc' }}>
+                    <td style={{ fontSize: 12, color: '#94a3b8', padding: '9px 8px 9px 0', verticalAlign: 'top' }}>{pi + 1}</td>
+                    <td style={{ fontSize: 13.5, color: '#0f2d3d', fontWeight: 500, padding: '9px 0', verticalAlign: 'top' }}>{pr}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Meeting notes */}
+        {notes && (
+          <div style={{ background: '#fff', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '24px 32px', marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>Meeting Notes</div>
+            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-line' }}>{notes}</div>
+          </div>
+        )}
+
+        {allActions.length === 0 && !notes && prospects.length === 0 && (
+          <div style={{ background: '#fff', borderRadius: 10, padding: '40px 32px', textAlign: 'center', color: '#9ca3af', fontSize: 13, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+            No meeting data yet — sync Read.ai to populate.
+          </div>
         )}
 
         <div style={{ fontSize: 11, color: '#cbd5e1', textAlign: 'center', marginTop: 28 }}>
