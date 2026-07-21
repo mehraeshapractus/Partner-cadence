@@ -76,10 +76,19 @@ def main():
     print(url)
     print("=" * 60 + "\n")
 
+    # Step 2 — spin up a one-shot local server to catch the redirect
+    import socket
+    try:
+        server = HTTPServer(("localhost", 8888), _CallbackHandler)
+    except OSError:
+        print("\nERROR: Port 8888 is already in use (Jupyter or another app?).")
+        print("Please stop that process and try again, or run:")
+        print("  netstat -ano | findstr :8888")
+        print("to find and close it.\n")
+        return
+
     webbrowser.open(url)
 
-    # Step 2 — spin up a one-shot local server to catch the redirect
-    server = HTTPServer(("localhost", 8888), _CallbackHandler)
     server.timeout = 1
     print("Waiting for sign-in (listening on http://localhost:8888/callback)...")
     while not _shutdown.is_set():
