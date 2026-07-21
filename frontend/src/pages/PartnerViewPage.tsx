@@ -190,7 +190,7 @@ export default function PartnerViewPage() {
   const stageBg    = partner.stage === 'GTM Active' ? '#fef3c7' : partner.stage === 'Business Referred' ? '#dcfce7' : '#f3f4f6'
 
   function buildUpdateEmailHref() {
-    if (!partner.email) return ''
+    if (!partner || !partner.email) return ''
     const partnerActs = openActs.filter(a => classifyAction(a) === 'partner')
     const practusActs = openActs.filter(a => classifyAction(a) === 'practus')
     let body = `Hi ${partner.partner_spoc || partner.name},\n\nFollowing up on our partnership — here is a quick update on pending items:\n`
