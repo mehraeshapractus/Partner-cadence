@@ -61,12 +61,17 @@ def main():
         return
 
     # Step 1 — build authorization URL and open browser
+    # prompt=select_account forces Microsoft to show the account picker
+    # so Myrah can sign in even if another account is cached in the browser
+    myrah_email = os.getenv("MYRAH_EMAIL", "")
     auth_params = urllib.parse.urlencode({
         "client_id":     CLIENT_ID,
         "response_type": "code",
         "redirect_uri":  REDIRECT_URI,
         "scope":         SCOPES,
         "response_mode": "query",
+        "prompt":        "select_account",
+        **({"login_hint": myrah_email} if myrah_email else {}),
     })
     url = f"{AUTH_URL}?{auth_params}"
 
