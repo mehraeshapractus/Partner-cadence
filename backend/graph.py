@@ -52,7 +52,7 @@ def _match_partner(email: str) -> Dict | None:
 def _match_partner_by_title(title: str) -> Dict | None:
     """Match a meeting to a partner by the non-Practus party in the title."""
     clean = re.sub(r'\bpractus\b', '', title, flags=re.I)
-    clean = re.sub(r'[<>\|&/\\+\-X]', ' ', clean)  # X = common meeting separator
+    clean = re.sub(r'[<>\|&/\\+\-X\(\)]', ' ', clean)  # also strip parentheses
     clean = re.sub(r'\s+', ' ', clean).strip().lower()
     if not clean:
         return None
@@ -115,8 +115,9 @@ def _is_partner_meeting(m: dict) -> bool:
         return True
     TITLE_KEYWORDS = (
         "partner", "cadence", "alignment", "bi-weekly", "biweekly",
-        "check-in", "catch-up", "partnership", "planning call",
-        "intro call", "intro meeting", "collaboration", "bd call", "bd meeting",
+        "check-in", "check in", "catch-up", "catch up", "partnership",
+        "planning call", "intro call", "intro meeting", "collaboration",
+        "bd call", "bd meeting", "weekly call", "monthly call", "fortnightly",
     )
     return any(kw in title for kw in TITLE_KEYWORDS)
 

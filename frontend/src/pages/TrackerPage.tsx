@@ -34,12 +34,15 @@ export default function TrackerPage() {
   const [withActionsDays,    setWithActionsDays]    = useState(0)
   const [openWithoutActions, setOpenWithoutActions] = useState(true)
 
-  const [sbu,    setSbu]    = useState("")
-  const [type,   setType]   = useState("")
-  const [stage,  setStage]  = useState("")
-  const [spoc,   setSpoc]   = useState("")
-  const [view,   setView]   = useState<"all"|"actions"|"idle">("all")
-  const [search, setSearch] = useState("")
+  const [sbu,          setSbu]          = useState("")
+  const [type,         setType]         = useState("")
+  const [stage,        setStage]        = useState("")
+  const [spoc,         setSpoc]         = useState("")
+  const [view,         setView]         = useState<"all"|"actions"|"idle">("all")
+  const [search,       setSearch]       = useState("")
+  const [showInactive, setShowInactive] = useState(false)
+
+  const INACTIVE_STAGES = new Set(["Dormant", "Lost", "Yet to be activated", ""])
 
   const fetchData = useCallback(async () => {
     try {
@@ -214,6 +217,7 @@ export default function TrackerPage() {
   const spocs = [...new Set(partners.map(p => p.spoc).filter(Boolean))].sort()
 
   let filtered = partners
+  if (!showInactive) filtered = filtered.filter(p => !INACTIVE_STAGES.has(p.stage || ""))
   if (sbu)    filtered = filtered.filter(p => (p.sbu || "Unassigned") === sbu)
   if (type)   filtered = filtered.filter(p => p.type === type)
   if (stage)  filtered = filtered.filter(p => p.stage === stage)
@@ -324,7 +328,10 @@ export default function TrackerPage() {
           <label>Stage</label>
           <select value={stage} onChange={e => setStage(e.target.value)}>
             <option value="">All</option>
-            {["GTM Active","Business Referred","Discussion Initiated"].map(s => <option key={s}>{s}</option>)}
+            {(showInactive
+              ? ["GTM Active","Business Referred","Discussion Initiated","Dormant","Lost","Yet to be activated"]
+              : ["GTM Active","Business Referred","Discussion Initiated"]
+            ).map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
         <div className="control-group">
@@ -345,6 +352,12 @@ export default function TrackerPage() {
         <div className="control-group">
           <label>Search</label>
           <input type="text" placeholder="Search partner..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div className="control-group">
+          <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>
+            <input type="checkbox" checked={showInactive} onChange={e => { setShowInactive(e.target.checked); if (!e.target.checked && INACTIVE_STAGES.has(stage)) setStage("") }} />
+            Show dormant / lost
+          </label>
         </div>
       </div>
 
