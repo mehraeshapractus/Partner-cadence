@@ -147,7 +147,7 @@ function PartnerDetailModal({ p, ld, ticks, onTick, manualActs, onAddAction, onD
               return (
                 <li key={k} className={done ? 'checked' : ''} style={{ marginBottom: 6, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
                   <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} style={{ marginTop: 2 }} />
-                  <span className="action-txt" style={{ fontSize: 12, flex: 1 }}>{a} <span className="live-badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>manual</span></span>
+                  <span className="action-txt" style={{ fontSize: 12, flex: 1 }}>{a}</span>
                   {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                   <button onClick={() => onDeleteAction(mi)} title="Delete action"
                     style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 2px', flexShrink: 0 }}>
@@ -348,7 +348,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                         return (
                           <li key={k} className={done ? 'checked' : ''} style={{ display: 'flex', alignItems: 'flex-start', gap: 3 }}>
                             <input type="checkbox" checked={done} onChange={e => onTick(k, e.target.checked, p.name, a)} style={{ marginTop: 2, flexShrink: 0 }} />
-                            <span className="action-txt" style={{ flex: 1 }}>{a} <span className="live-badge" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>manual</span></span>
+                            <span className="action-txt" style={{ flex: 1 }}>{a}</span>
                             {done && <span className="done-badge">done {new Date(ticks[k].at).toLocaleDateString()}</span>}
                             <button onClick={() => onDeleteAction(p.name, mi)} title="Delete"
                               style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 13, padding: '0 1px', flexShrink: 0, lineHeight: 1 }}>
