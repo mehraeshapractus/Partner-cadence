@@ -348,6 +348,7 @@ PARTNERS = [
     {"name": "Chirag Savla", "type": "BD Partner", "stage": "Discussion Initiated", "sbu": "MEA", "spoc": "Shradha Prasad", "partner_spoc": "Chirag Savla", "category": "", "willingness": "", "intro_quality": "", "comments": "Scale Up / Growth Alchemists; Africa mandates focus", "last_meeting": "2026-07-16", "email": "chirag@growth-alchemists.com"},
     {"name": "Cube Highways", "type": "BD Partner", "stage": "Discussion Initiated", "sbu": "India", "spoc": "Sreejit Nair", "partner_spoc": "Hari Reddy", "category": "", "willingness": "", "intro_quality": "", "comments": "Infrastructure / highways partner; Delhi CXO meeting planned", "last_meeting": "2026-07-16", "email": "hari.reddy@cubehighways.com"},
     {"name": "IKAAI", "type": "Partner", "stage": "Discussion Initiated", "sbu": "India", "spoc": "Deepak Narayanan", "partner_spoc": "Neha Sehgal", "category": "", "willingness": "", "intro_quality": "", "comments": "TRAI bid collaboration; GEM registration in progress", "last_meeting": "2026-07-14", "email": "neha@ikaaiindia.in"},
+    {"name": "Quadratyx", "type": "Tech & Service", "stage": "Discussion Initiated", "sbu": "India", "spoc": "Shradha Prasad", "partner_spoc": "Quadratyx", "category": "", "willingness": "", "intro_quality": "", "comments": "Native-AI company; products: AskQ, PowerCA, QIPP; workshop Aug 4 at The Capital BKC", "last_meeting": "2026-07-21", "email": ""},
 ]
 
 WEEKLY = [
