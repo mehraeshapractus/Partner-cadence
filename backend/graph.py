@@ -424,18 +424,51 @@ async def fetch_outlook_calendar(state: SyncState) -> SyncState:
 
     def _patch_weekly(wc: Dict, wp: Dict) -> List[Dict]:
         weekly = copy.deepcopy(WEEKLY)
+
+        # Compute the actual current week (Mon–Sun) from today's date
+        now = datetime.now(timezone.utc)
+        mon = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        sun = mon + timedelta(days=6)
+
+        def _label(start: datetime, end: datetime) -> str:
+            if start.month == end.month:
+                return f"{start.strftime('%b')} {start.day} – {end.day}, {start.year}"
+            return (
+                f"{start.strftime('%b')} {start.day} – "
+                f"{end.strftime('%b')} {end.day}, {end.year}"
+            )
+
+        current_label = _label(mon, sun)
+
+        # Clear old current flags; find or create the row for this week
         for w in weekly:
-            if w.get("current"):
-                if "cell_partners" not in w:
-                    w["cell_partners"] = {t: {s: [] for s in _SBUS} for t in _TYPES}
-                for t in _TYPES:
-                    for s in _SBUS:
-                        existing = w["cell_partners"][t][s]
-                        new_names = [p for p in wp[t][s] if p not in existing]
-                        # Only count partners not already tracked in the baseline
-                        w["cells"][t][s] += len(new_names)
-                        w["cell_partners"][t][s] = existing + new_names
-                break
+            w["current"] = False
+
+        current_row = next((w for w in weekly if w.get("week") == current_label), None)
+        if current_row is None:
+            current_row = {
+                "week": current_label,
+                "current": True,
+                "note": "Partial — updated live",
+                "cells": {t: {s: 0 for s in _SBUS} for t in _TYPES},
+                "cell_partners": {t: {s: [] for s in _SBUS} for t in _TYPES},
+            }
+            weekly.insert(0, current_row)
+        else:
+            current_row["current"] = True
+
+        if "cell_partners" not in current_row:
+            current_row["cell_partners"] = {t: {s: [] for s in _SBUS} for t in _TYPES}
+
+        for t in _TYPES:
+            for s in _SBUS:
+                existing = current_row["cell_partners"][t][s]
+                new_names = [p for p in wp[t][s] if p not in existing]
+                current_row["cells"][t][s] += len(new_names)
+                current_row["cell_partners"][t][s] = existing + new_names
+
         return weekly
 
     token = await _graph_delegated_token()
