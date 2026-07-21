@@ -24,7 +24,7 @@ CLIENT_ID     = os.getenv("AZURE_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET", "")
 TOKEN_FILE    = ".outlook_token.json"
 SCOPES        = "Calendars.Read Mail.Read offline_access"
-REDIRECT_URI  = "http://localhost:8400/callback"
+REDIRECT_URI  = "http://localhost:8888/callback"
 
 AUTH_URL  = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/authorize"
 TOKEN_URL = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
@@ -79,9 +79,9 @@ def main():
     webbrowser.open(url)
 
     # Step 2 — spin up a one-shot local server to catch the redirect
-    server = HTTPServer(("localhost", 8400), _CallbackHandler)
+    server = HTTPServer(("localhost", 8888), _CallbackHandler)
     server.timeout = 1
-    print("Waiting for sign-in (listening on http://localhost:8400/callback)...")
+    print("Waiting for sign-in (listening on http://localhost:8888/callback)...")
     while not _shutdown.is_set():
         server.handle_request()
     server.server_close()
