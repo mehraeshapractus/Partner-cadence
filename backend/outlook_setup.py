@@ -1,14 +1,18 @@
 """
 One-time script to get delegated Microsoft Graph tokens for Myrah's account.
-Uses device code flow with httpx (supports confidential clients).
+Uses authorization code flow: opens a browser, captures the OAuth redirect,
+exchanges the code for tokens, and saves them to .outlook_token.json.
 
 Run once:  python outlook_setup.py
-Saves tokens to .outlook_token.json
+Then copy .outlook_token.json contents into OUTLOOK_TOKEN_JSON env var on Railway.
 """
-import asyncio
 import json
 import os
 import time
+import urllib.parse
+import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Event
 
 import httpx
 from dotenv import load_dotenv
@@ -20,78 +24,109 @@ CLIENT_ID     = os.getenv("AZURE_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("AZURE_CLIENT_SECRET", "")
 TOKEN_FILE    = ".outlook_token.json"
 SCOPES        = "Calendars.Read Mail.Read offline_access"
+REDIRECT_URI  = "http://localhost:8400/callback"
 
-DEVICE_URL = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/devicecode"
-TOKEN_URL  = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+AUTH_URL  = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/authorize"
+TOKEN_URL = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+
+_received_code: list = []
+_shutdown = Event()
 
 
-async def main():
+class _CallbackHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        if "code" in params:
+            _received_code.append(params["code"][0])
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<html><body><h2>Authorized! You can close this tab.</h2></body></html>")
+        else:
+            err = params.get("error", ["unknown"])[0]
+            self.send_response(400)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(f"<html><body><h2>Error: {err}</h2></body></html>".encode())
+        _shutdown.set()
+
+    def log_message(self, *_):
+        pass  # silence request logs
+
+
+def main():
     if not all([TENANT_ID, CLIENT_ID]):
         print("ERROR: AZURE_TENANT_ID and AZURE_CLIENT_ID must be set in .env")
         return
 
-    print(f"CLIENT_ID: {CLIENT_ID[:8]}... CLIENT_SECRET: {'set' if CLIENT_SECRET else 'MISSING'}")
+    # Step 1 — build authorization URL and open browser
+    auth_params = urllib.parse.urlencode({
+        "client_id":     CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri":  REDIRECT_URI,
+        "scope":         SCOPES,
+        "response_mode": "query",
+    })
+    url = f"{AUTH_URL}?{auth_params}"
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        # Step 1: initiate device code flow
-        r = await client.post(DEVICE_URL, data={
-            "client_id": CLIENT_ID,
-            "scope":     SCOPES,
-        })
-        flow = r.json()
+    print("\n" + "=" * 60)
+    print("Opening browser for Myrah to sign in...")
+    print("If it doesn't open automatically, visit:")
+    print(url)
+    print("=" * 60 + "\n")
 
-        if "error" in flow:
-            print(f"ERROR starting device flow: {flow}")
-            return
+    webbrowser.open(url)
 
-        print("\n" + "="*60)
-        print(flow["message"])
-        print("="*60 + "\n")
-        print("Waiting for Myrah to sign in...")
+    # Step 2 — spin up a one-shot local server to catch the redirect
+    server = HTTPServer(("localhost", 8400), _CallbackHandler)
+    server.timeout = 1
+    print("Waiting for sign-in (listening on http://localhost:8400/callback)...")
+    while not _shutdown.is_set():
+        server.handle_request()
+    server.server_close()
 
-        interval   = int(flow.get("interval", 5))
-        expires_in = int(flow.get("expires_in", 900))
-        deadline   = time.time() + expires_in
+    if not _received_code:
+        print("ERROR: No authorization code received — did the browser redirect complete?")
+        return
 
-        # Step 2: poll for token — public client flow, no client_secret
-        while time.time() < deadline:
-            await asyncio.sleep(interval)
+    code = _received_code[0]
 
-            poll_data = {
-                "grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
-                "device_code": flow["device_code"],
-                "client_id":   CLIENT_ID,
-            }
-            r = await client.post(TOKEN_URL, data=poll_data)
-            result = r.json()
+    # Step 3 — exchange the authorization code for tokens
+    token_data: dict = {
+        "grant_type":   "authorization_code",
+        "code":         code,
+        "redirect_uri": REDIRECT_URI,
+        "client_id":    CLIENT_ID,
+        "scope":        SCOPES,
+    }
+    if CLIENT_SECRET:
+        token_data["client_secret"] = CLIENT_SECRET
 
-            err = result.get("error", "")
-            if err == "authorization_pending":
-                continue
-            if err == "slow_down":
-                interval += 5
-                continue
-            if err:
-                print(f"ERROR: {err}: {result.get('error_description', '')}")
-                return
+    with httpx.Client(timeout=30) as client:
+        r = client.post(TOKEN_URL, data=token_data)
+        result = r.json()
 
-            # Success
-            data = {
-                "client_id":     CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "access_token":  result["access_token"],
-                "refresh_token": result.get("refresh_token", ""),
-                "expires_at":    time.time() + result.get("expires_in", 3600),
-                "scope":         SCOPES,
-            }
-            with open(TOKEN_FILE, "w") as f:
-                json.dump(data, f, indent=2)
+    if "error" in result:
+        print(f"ERROR: {result['error']}: {result.get('error_description', '')}")
+        return
 
-            print(f"\nDone! Tokens saved to {TOKEN_FILE}")
-            return
+    data = {
+        "client_id":     CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "access_token":  result["access_token"],
+        "refresh_token": result.get("refresh_token", ""),
+        "expires_at":    time.time() + result.get("expires_in", 3600),
+        "scope":         result.get("scope", SCOPES),
+    }
+    with open(TOKEN_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
-    print("ERROR: Device flow timed out.")
+    print(f"\nSuccess! Tokens saved to {TOKEN_FILE}")
+    print(f"Granted scopes: {data['scope']}")
+    print("\nNext step: copy the contents of .outlook_token.json and set it as")
+    print("OUTLOOK_TOKEN_JSON environment variable in Railway.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
