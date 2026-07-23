@@ -450,35 +450,23 @@ export default function TrackerPage() {
                     <th style={{ minWidth: 130 }}>Partner</th>
                     <th style={{ minWidth: 90 }}>SPOC</th>
                     <th style={{ minWidth: 65 }}>SBU</th>
+                    <th style={{ minWidth: 75 }}>Type</th>
                     <th style={{ minWidth: 90 }}>Last Meeting</th>
                     <th style={{ minWidth: 65, textAlign: 'center' }}>Days ago</th>
-                    <th style={{ minWidth: 280 }}>Open Actions (from emails &amp; Read.ai)</th>
+                    <th style={{ minWidth: 110 }}>Read.ai report</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentPartners.map(({ p, ld, lm, d }, i) => {
                     const daysAgoVal = d ? Math.floor((today.getTime() - d.getTime()) / 86400000) : null
-                    const hcAct  = p.actions || []
-                    const lvAct  = (ld?.actions || []).filter(la => !hcAct.some(ha => ha.toLowerCase().trim() === la.toLowerCase().trim()))
-                    const mnAct  = (manualActions[p.name] || []).filter(
-                      ma => !hcAct.some(ha => ha.toLowerCase().trim() === ma.toLowerCase().trim()) &&
-                            !lvAct.some(la => la.toLowerCase().trim() === ma.toLowerCase().trim())
-                    )
-                    const openHc = hcAct.filter((_, ai) => !ticks[`${p.name}::${ai}`])
-                    const openLv = lvAct.filter(a => !ticks[`live::${p.name}::${fnvHash(a.trim())}`])
-                    const openMn = mnAct.filter(a => !ticks[`manual::${p.name}::${fnvHash(a.trim())}`])
-                    const openAll = [...openHc, ...openLv, ...openMn]
+                    const reportUrl  = ld?.report_url || ''
                     return (
                       <tr key={p.name}>
                         <td style={{ textAlign: 'center', color: 'var(--text-3)', fontWeight: 600, fontSize: 10.5 }}>{i + 1}</td>
-                        <td>
-                          <strong style={{ color: 'var(--hdr)', fontSize: 12 }}>{p.name}</strong>
-                          {p.partner_spoc && p.partner_spoc !== p.name && (
-                            <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{p.partner_spoc}</div>
-                          )}
-                        </td>
+                        <td><strong style={{ color: 'var(--hdr)', fontSize: 12 }}>{p.name}</strong></td>
                         <td style={{ fontSize: 11 }}>{p.spoc || <span className="r-nd">&mdash;</span>}</td>
                         <td><span className="sbu-tag">{p.sbu || 'Unassigned'}</span></td>
+                        <td><span className={`type-pill ${p.type === 'BD Partner' ? 'bd' : p.type === 'Partner' ? 'pt' : 'sme'}`}>{p.type}</span></td>
                         <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{lm || <span className="r-nd">Never</span>}</td>
                         <td style={{ textAlign: 'center' }}>
                           {daysAgoVal !== null
@@ -486,13 +474,12 @@ export default function TrackerPage() {
                             : <span className="days-ago-badge late">—</span>}
                         </td>
                         <td>
-                          {openAll.length === 0
-                            ? <span className="r-nd">&mdash;</span>
-                            : <ul style={{ margin: 0, paddingLeft: 14, listStyle: 'disc' }}>
-                                {openAll.map((a, ai) => (
-                                  <li key={ai} style={{ fontSize: 11, color: '#1e293b', lineHeight: 1.5, marginBottom: 2 }}>{a}</li>
-                                ))}
-                              </ul>}
+                          {reportUrl
+                            ? <a href={reportUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ fontSize: 10.5, color: 'var(--teal-d)', textDecoration: 'none', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '2px 8px', borderRadius: 3, whiteSpace: 'nowrap' }}>
+                                &#x1F4CB; Report
+                              </a>
+                            : <span className="r-nd">&mdash;</span>}
                         </td>
                       </tr>
                     )
