@@ -206,7 +206,7 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
     })
   }
 
-  const HEAD = ['#', 'Partner / Contact', 'SBU', 'Email', 'Type', 'Stage', 'Last Meeting', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'Next Step + Flag', 'SPOC']
+  const HEAD = ['#', 'Partner / Contact', 'SBU', 'Type', 'Stage', 'Last Meeting', 'Open Actions (tick to mark done)', 'Prospects / POV Decks', 'SPOC']
 
   const selectedPartner = selected ? partners.find(p => p.name === selected) : null
   const selectedLd      = selected ? (liveData[selected] || { notes: '', actions: [], last_meeting: '', report_url: '' }) : null
@@ -269,7 +269,6 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                   </button>
                 </td>
                 <td><span className="sbu-tag">{p.sbu || 'Unassigned'}</span></td>
-                <td style={{ fontSize: 10.5 }}>{email || <span className="placeholder">—</span>}</td>
                 <td><span className={`type-pill ${typeClass(p.type)}`}>{p.type}</span></td>
                 <td><span className={`stage-pill ${stagePillClass(p.stage)}`}>{p.stage}</span></td>
                 <td style={{ fontSize: 10.5, minWidth: 110 }}>
@@ -421,7 +420,6 @@ export default function PartnerTable({ partners, liveData, ticks, onTick, manual
                     )
                   })()}
                 </td>
-                <td className="placeholder" style={{ fontStyle: 'italic', fontSize: 11 }}>(inferred)</td>
                 <td><span className="spoc-pill">{p.spoc || '—'}</span></td>
               </tr>
             )
