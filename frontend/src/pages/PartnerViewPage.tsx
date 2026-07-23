@@ -268,9 +268,18 @@ export default function PartnerViewPage() {
               {partner.partner_spoc && partner.partner_spoc !== partner.name && (
                 <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>Contact: {partner.partner_spoc}</div>
               )}
-              {partner.email && (
-                <a href={`mailto:${partner.email}`} style={{ fontSize: 12.5, color: '#0f766e', marginTop: 4, display: 'block' }}>{partner.email}</a>
-              )}
+              <div style={{ marginTop: 10 }}>
+                {partner.email ? (
+                  <a
+                    href={`mailto:${partner.email}`}
+                    style={{ fontSize: 12.5, padding: '6px 16px', borderRadius: 5, background: '#0f766e', color: '#fff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+                  >
+                    ✉ Email {partner.partner_spoc || partner.name}
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>No email on record</span>
+                )}
+              </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 2 }}>As of {today}</div>
