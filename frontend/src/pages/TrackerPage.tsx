@@ -295,8 +295,13 @@ export default function TrackerPage() {
       const d   = parseDate(lm)
       return { p, ld, lm, d }
     })
-    .filter(({ d }) => d !== null && (cadenceDays === 0 ? true : d! >= cutoff))
-    .sort((a, b) => (b.d!.getTime()) - (a.d!.getTime()))
+    .filter(({ d }) => cadenceDays === 0 ? true : (d === null || d! < cutoff))
+    .sort((a, b) => {
+      if (a.d === null && b.d === null) return 0
+      if (a.d === null) return -1
+      if (b.d === null) return 1
+      return a.d!.getTime() - b.d!.getTime()
+    })
 
   if (loading) return <div className="loading">Loading partner data...</div>
 
@@ -419,7 +424,7 @@ export default function TrackerPage() {
 
       <div className="section-hdr collapsible" style={{ background: 'var(--teal-xlight, #f0fdfa)', borderLeft: '3px solid var(--teal-d, #0f766e)' }} onClick={() => setOpenCadence(o => !o)}>
         <span className={`chevron ${openCadence ? "open" : ""}`}>&#x203A;</span>
-        Cadence exception &mdash; partners called in last
+        Cadence exception &mdash; partners not called in last
         <select
           value={cadenceDays}
           onClick={e => e.stopPropagation()}
@@ -436,7 +441,7 @@ export default function TrackerPage() {
       </div>
       {openCadence && (
         recentPartners.length === 0
-          ? <div className="empty" style={{ fontSize: 12 }}>No partner calls recorded in this window. Sync to refresh.</div>
+          ? <div className="empty" style={{ fontSize: 12 }}>All partners have been called within this window.</div>
           : <div className="report-tbl-wrap">
               <table className="report-tbl">
                 <thead>
