@@ -511,15 +511,6 @@ export default function PartnerViewPage() {
                 <tbody>
                   {prospects.map((pr, pi) => {
                     const stage = prospectStages[pr] || ''
-                    const stageColors: Record<string, {bg: string; color: string}> = {
-                      'Need identification':    { bg: '#f1f5f9', color: '#475569' },
-                      'Deck to be sent':        { bg: '#fef3c7', color: '#92400e' },
-                      'Intro Pending':          { bg: '#ffe4e6', color: '#9f1239' },
-                      'Introduction Completed': { bg: '#dcfce7', color: '#166534' },
-                      'Meeting Scheduled':      { bg: '#dbeafe', color: '#1e40af' },
-                      'Proposal Sent':          { bg: '#f3e8ff', color: '#6b21a8' },
-                    }
-                    const sc = stageColors[stage] || { bg: '#f8fafc', color: '#94a3b8' }
                     return (
                       <tr key={pi} style={{ borderBottom: '1px solid #f1f5f9', background: pi % 2 === 0 ? '#fff' : '#fafafa' }}>
                         <td style={{ fontSize: 12, color: '#94a3b8', padding: '10px 10px 10px 12px', fontVariantNumeric: 'tabular-nums' }}>{pi + 1}</td>
@@ -531,8 +522,8 @@ export default function PartnerViewPage() {
                             onChange={e => updateProspectStage(pr, e.target.value)}
                             style={{
                               fontSize: 11.5, padding: '4px 8px', borderRadius: 4,
-                              border: '1px solid #e2e8f0', background: sc.bg, color: sc.color,
-                              cursor: 'pointer', fontWeight: 600, outline: 'none', width: '100%'
+                              border: '1px solid #e2e8f0', background: '#f8fafc', color: '#374151',
+                              cursor: 'pointer', outline: 'none', width: '100%'
                             }}
                           >
                             <option value="">— Set stage —</option>
