@@ -29,8 +29,9 @@ export default function PartnerViewPage() {
   const [manualMeetings, setManualMeetings] = useState<Array<{date: string; url: string; title: string}>>([])
   const [addingMeeting,  setAddingMeeting]  = useState(false)
   const [meetingDate,    setMeetingDate]    = useState('')
-  const [meetingUrl,     setMeetingUrl]     = useState('')
-  const [meetingSaving,  setMeetingSaving]  = useState(false)
+  const [meetingUrl,      setMeetingUrl]      = useState('')
+  const [meetingSaving,   setMeetingSaving]   = useState(false)
+  const [prospectStages,  setProspectStages]  = useState<Record<string, string>>({})
 
   const decodedName = name ? decodeURIComponent(name) : ''
 
@@ -39,16 +40,18 @@ export default function PartnerViewPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [pr, mr, sr, mmr] = await Promise.all([
+        const [pr, mr, sr, mmr, psr] = await Promise.all([
           fetch('/api/partners'),
           fetch('/api/manual-actions'),
           fetch(`/api/action-states/${encodeURIComponent(decodedName)}`),
           fetch(`/api/manual-meetings/${encodeURIComponent(decodedName)}`),
+          fetch(`/api/prospect-stages/${encodeURIComponent(decodedName)}`),
         ])
         const pd  = await pr.json()
         const md  = await mr.json()
         const sd  = await sr.json()
         const mmd = await mmr.json()
+        const psd = await psr.json()
         const p = (pd.partners as Partner[]).find(
           x => x.name.toLowerCase() === decodedName.toLowerCase()
         )
@@ -89,6 +92,7 @@ export default function PartnerViewPage() {
         setManualActions(mnActs)
         setActionStates(merged)
         setManualMeetings(mmd.meetings || [])
+        setProspectStages(psd.stages || {})
       } catch { } finally { setLoading(false) }
     }
     load()
@@ -187,6 +191,16 @@ export default function PartnerViewPage() {
   const typeColor  = partner.type === 'BD Partner' ? '#1d4ed8' : partner.type === 'Partner' ? '#0f766e' : '#7c3aed'
   const stageColor = partner.stage === 'GTM Active' ? '#b45309' : partner.stage === 'Business Referred' ? '#166534' : '#374151'
   const stageBg    = partner.stage === 'GTM Active' ? '#fef3c7' : partner.stage === 'Business Referred' ? '#dcfce7' : '#f3f4f6'
+
+  async function updateProspectStage(prospect: string, stage: string) {
+    if (!partner) return
+    setProspectStages(prev => ({ ...prev, [prospect]: stage }))
+    await fetch('/api/prospect-stages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner: partner.name, prospect, stage }),
+    })
+  }
 
   function buildUpdateEmailHref() {
     if (!partner || !partner.email) return ''
@@ -484,22 +498,58 @@ export default function PartnerViewPage() {
             <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>
               Prospects / Pipeline <span style={{ fontWeight: 400, color: '#cbd5e1' }}>({prospects.length})</span>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                  <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8, width: 32 }}>#</th>
-                  <th style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'left', paddingBottom: 8 }}>Company / Contact</th>
-                </tr>
-              </thead>
-              <tbody>
-                {prospects.map((pr, pi) => (
-                  <tr key={pi} style={{ borderBottom: '1px solid #f8fafc' }}>
-                    <td style={{ fontSize: 12, color: '#94a3b8', padding: '9px 8px 9px 0', verticalAlign: 'top' }}>{pi + 1}</td>
-                    <td style={{ fontSize: 13.5, color: '#0f2d3d', fontWeight: 500, padding: '9px 0', verticalAlign: 'top' }}>{pr}</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
+                <thead>
+                  <tr style={{ background: '#0f2d3d' }}>
+                    <th style={{ fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'left', padding: '10px 10px 10px 12px', width: 36 }}>#</th>
+                    <th style={{ fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'left', padding: '10px 10px' }}>Name of Prospect</th>
+                    <th style={{ fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'left', padding: '10px 10px', width: 140 }}>Partner Reference</th>
+                    <th style={{ fontSize: 11, fontWeight: 700, color: '#fff', textAlign: 'left', padding: '10px 12px 10px 10px', width: 200 }}>Stage</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {prospects.map((pr, pi) => {
+                    const stage = prospectStages[pr] || ''
+                    const stageColors: Record<string, {bg: string; color: string}> = {
+                      'Need identification':    { bg: '#f1f5f9', color: '#475569' },
+                      'Deck to be sent':        { bg: '#fef3c7', color: '#92400e' },
+                      'Intro Pending':          { bg: '#ffe4e6', color: '#9f1239' },
+                      'Introduction Completed': { bg: '#dcfce7', color: '#166534' },
+                      'Meeting Scheduled':      { bg: '#dbeafe', color: '#1e40af' },
+                      'Proposal Sent':          { bg: '#f3e8ff', color: '#6b21a8' },
+                    }
+                    const sc = stageColors[stage] || { bg: '#f8fafc', color: '#94a3b8' }
+                    return (
+                      <tr key={pi} style={{ borderBottom: '1px solid #f1f5f9', background: pi % 2 === 0 ? '#fff' : '#fafafa' }}>
+                        <td style={{ fontSize: 12, color: '#94a3b8', padding: '10px 10px 10px 12px', fontVariantNumeric: 'tabular-nums' }}>{pi + 1}</td>
+                        <td style={{ fontSize: 13, color: '#0f2d3d', fontWeight: 600, padding: '10px 10px' }}>{pr}</td>
+                        <td style={{ fontSize: 12, color: '#475569', padding: '10px 10px' }}>{partner.name}</td>
+                        <td style={{ padding: '8px 12px 8px 10px' }}>
+                          <select
+                            value={stage}
+                            onChange={e => updateProspectStage(pr, e.target.value)}
+                            style={{
+                              fontSize: 11.5, padding: '4px 8px', borderRadius: 4,
+                              border: '1px solid #e2e8f0', background: sc.bg, color: sc.color,
+                              cursor: 'pointer', fontWeight: 600, outline: 'none', width: '100%'
+                            }}
+                          >
+                            <option value="">— Set stage —</option>
+                            <option value="Need identification">Need identification</option>
+                            <option value="Deck to be sent">Deck to be sent</option>
+                            <option value="Intro Pending">Intro Pending</option>
+                            <option value="Introduction Completed">Introduction Completed</option>
+                            <option value="Meeting Scheduled">Meeting Scheduled</option>
+                            <option value="Proposal Sent">Proposal Sent</option>
+                          </select>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

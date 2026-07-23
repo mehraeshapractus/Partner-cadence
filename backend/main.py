@@ -231,6 +231,7 @@ async def lifespan(app: FastAPI):
     _load_states()
     _load_reports()
     _load_meetings_manual()
+    _load_prospect_stages()
     asyncio.create_task(do_sync())         # warm sync on startup
     asyncio.create_task(_auto_sync_loop()) # auto-sync every 2 hours
     yield
@@ -440,6 +441,43 @@ async def delete_manual_prospect(partner_name: str, index: int):
         if not pros:
             del _prospects[partner_name]
         _save_prospects()
+    return {"ok": True}
+
+
+# Prospect stages — persisted to DATA_DIR; keyed partner → {prospect_name → stage}
+PROSPECT_STAGES_FILE: Path = _data_file("prospect_stages.json")
+_prospect_stages: Dict[str, Dict[str, str]] = {}
+
+def _load_prospect_stages():
+    global _prospect_stages
+    try:
+        if PROSPECT_STAGES_FILE.exists():
+            _prospect_stages = json.loads(PROSPECT_STAGES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        _prospect_stages = {}
+
+def _save_prospect_stages():
+    try:
+        PROSPECT_STAGES_FILE.write_text(json.dumps(_prospect_stages, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        pass
+
+
+@app.get("/api/prospect-stages/{partner_name}")
+async def get_prospect_stages(partner_name: str):
+    from urllib.parse import unquote
+    pname = unquote(partner_name)
+    return {"stages": _prospect_stages.get(pname, {})}
+
+@app.post("/api/prospect-stages")
+async def set_prospect_stage(body: dict = Body(...)):
+    partner  = body.get("partner", "")
+    prospect = body.get("prospect", "")
+    stage    = body.get("stage", "")
+    if not partner or not prospect:
+        return {"ok": False, "error": "partner and prospect required"}
+    _prospect_stages.setdefault(partner, {})[prospect] = stage
+    _save_prospect_stages()
     return {"ok": True}
 
 
