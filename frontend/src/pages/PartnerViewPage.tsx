@@ -528,11 +528,14 @@ export default function PartnerViewPage() {
                           >
                             <option value="">— Set stage —</option>
                             <option value="Need identification">Need identification</option>
+                            <option value="Walk Through">Walk Through</option>
                             <option value="Deck to be sent">Deck to be sent</option>
+                            <option value="QP">QP</option>
                             <option value="Intro Pending">Intro Pending</option>
                             <option value="Introduction Completed">Introduction Completed</option>
                             <option value="Meeting Scheduled">Meeting Scheduled</option>
                             <option value="Proposal Sent">Proposal Sent</option>
+                            <option value="Pipeline">Pipeline</option>
                           </select>
                         </td>
                       </tr>
