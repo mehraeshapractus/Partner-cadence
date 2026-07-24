@@ -98,6 +98,17 @@ export default function PartnerViewPage() {
     load()
   }, [decodedName])
 
+  async function deleteAction(text: string) {
+    if (!partner) return
+    const idx = manualActions.indexOf(text)
+    if (idx !== -1) {
+      await fetch(`/api/manual-actions/${encodeURIComponent(partner.name)}/${idx}`, { method: 'DELETE' })
+      setManualActions(prev => prev.filter((_, i) => i !== idx))
+    } else {
+      await toggleDone(text)
+    }
+  }
+
   async function toggleDone(text: string) {
     const key  = aKey(text)
     const next = actionStates[key] === 'done' ? 'open' : 'done'
@@ -418,12 +429,13 @@ export default function PartnerViewPage() {
                   {openActs.filter(a => classifyAction(a) === 'partner').length === 0
                     ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
                     : openActs.filter(a => classifyAction(a) === 'partner').map(a => (
-                      <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                      <div key={a} className="action-row" style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
                         <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
                           width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
                           <circle cx="11" cy="11" r="8.5" fill="white" stroke="#475569" strokeWidth="2.5"/>
                         </svg>
-                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
+                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6, flex: 1 }}>{a}</span>
+                        <button onClick={() => deleteAction(a)} className="action-delete-btn" title="Remove action" style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '2px 4px', flexShrink: 0, marginTop: 2, borderRadius: 3 }}>✕</button>
                       </div>
                     ))
                   }
@@ -435,12 +447,13 @@ export default function PartnerViewPage() {
                   {openActs.filter(a => classifyAction(a) === 'practus').length === 0
                     ? <div style={{ padding: '14px 16px', fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>No open actions</div>
                     : openActs.filter(a => classifyAction(a) === 'practus').map(a => (
-                      <div key={a} style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
+                      <div key={a} className="action-row" style={{ display: 'flex', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f8fafc', alignItems: 'flex-start' }}>
                         <svg onClick={() => toggleDone(a)} aria-label="Mark as done" className="action-radio-open"
                           width="20" height="20" viewBox="0 0 22 22" style={{ cursor: 'pointer', display: 'block', flexShrink: 0, marginTop: 2 }}>
                           <circle cx="11" cy="11" r="8.5" fill="white" stroke="#1d4ed8" strokeWidth="2.5"/>
                         </svg>
-                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6 }}>{a}</span>
+                        <span style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.6, flex: 1 }}>{a}</span>
+                        <button onClick={() => deleteAction(a)} className="action-delete-btn" title="Remove action" style={{ background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: '2px 4px', flexShrink: 0, marginTop: 2, borderRadius: 3 }}>✕</button>
                       </div>
                     ))
                   }
@@ -573,6 +586,9 @@ export default function PartnerViewPage() {
         }
         .action-radio-open circle { transition: stroke 0.15s, fill 0.15s; }
         .action-radio-open:hover { filter: drop-shadow(0 0 3px rgba(20,184,166,0.35)); }
+        .action-delete-btn { opacity: 0; transition: opacity 0.15s, color 0.15s; }
+        .action-row:hover .action-delete-btn { opacity: 1; }
+        .action-delete-btn:hover { color: #ef4444 !important; }
       `}</style>
     </div>
   )
